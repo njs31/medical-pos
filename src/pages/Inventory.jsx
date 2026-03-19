@@ -1,0 +1,314 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Modal from '@/components/ui/Modal';
+import { formatCurrency, isExpired, isExpiringWithin } from '@/utils/formatters';
+
+const initialForm = {
+  name: '',
+  pack: '',
+  hsn_code: '',
+  batch: '',
+  expiry: '',
+  mrp: '',
+  rate: '',
+  purchase_rate: '',
+  sgst_percent: 6,
+  cgst_percent: 6,
+  stock_qty: '',
+  reorder_level: 10,
+};
+
+export default function Inventory({ toast, initialFilter = 'all' }) {
+  const [medicines, setMedicines] = useState([]);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState(initialFilter);
+  const [sortKey, setSortKey] = useState('name');
+  const [sortDir, setSortDir] = useState('asc');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form, setForm] = useState(initialForm);
+  const [editingId, setEditingId] = useState(null);
+  const fileRef = useRef(null);
+  const formRef = useRef(null);
+
+  async function load() {
+    setMedicines(await window.api.medicines.getAll());
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  useEffect(() => {
+    setFilter(initialFilter);
+  }, [initialFilter]);
+
+  const filtered = useMemo(() => {
+    const term = search.toLowerCase();
+    const result = medicines.filter((item) => {
+      const match =
+        item.name.toLowerCase().includes(term) ||
+        String(item.hsn_code || '').toLowerCase().includes(term) ||
+        String(item.batch || '').toLowerCase().includes(term);
+      if (!match) return false;
+      if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
+      if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 60);
+      if (filter === 'expired') return isExpired(item.expiry);
+      return true;
+    });
+
+    result.sort((a, b) => {
+      const first = a[sortKey] ?? '';
+      const second = b[sortKey] ?? '';
+      const comparison =
+        typeof first === 'number' || typeof second === 'number'
+          ? Number(first) - Number(second)
+          : String(first).localeCompare(String(second));
+      return sortDir === 'asc' ? comparison : -comparison;
+    });
+    return result;
+  }, [filter, medicines, search, sortDir, sortKey]);
+
+  function openAddModal() {
+    setEditingId(null);
+    setForm(initialForm);
+    setModalOpen(true);
+  }
+
+  function openEditModal(item) {
+    setEditingId(item.id);
+    setForm({ ...item });
+    setModalOpen(true);
+  }
+
+  async function submit(event) {
+    event?.preventDefault?.();
+
+    if (formRef.current && !formRef.current.reportValidity()) {
+      return;
+    }
+
+    try {
+      const payload = {
+        ...form,
+        name: String(form.name || '').trim(),
+        pack: String(form.pack || '').trim(),
+        hsn_code: String(form.hsn_code || '').trim(),
+        batch: String(form.batch || '').trim(),
+        expiry: String(form.expiry || '').trim(),
+        mrp: Number(form.mrp || 0),
+        rate: Number(form.rate || 0),
+        purchase_rate: Number(form.purchase_rate || 0),
+        sgst_percent: Number(form.sgst_percent || 0),
+        cgst_percent: Number(form.cgst_percent || 0),
+        stock_qty: Number(form.stock_qty || 0),
+        reorder_level: Number(form.reorder_level || 0),
+      };
+
+      if (editingId) {
+        await window.api.medicines.update(editingId, payload);
+        toast('Medicine updated successfully');
+      } else {
+        await window.api.medicines.add(payload);
+        toast('Medicine added successfully');
+      }
+
+      setModalOpen(false);
+      setForm(initialForm);
+      await load();
+    } catch (error) {
+      toast(error?.message || 'Unable to save medicine', 'error');
+      console.error('Medicine save failed:', error);
+    }
+  }
+
+  async function remove(id) {
+    if (!window.confirm('Delete this medicine?')) return;
+    await window.api.medicines.delete(id);
+    toast('Medicine deleted');
+    load();
+  }
+
+  async function adjustStock(item, qty) {
+    await window.api.medicines.adjustStock(item.id, qty);
+    toast(`Stock ${qty > 0 ? 'increased' : 'reduced'} for ${item.name}`);
+    load();
+  }
+
+  async function importCsv(file) {
+    const content = await file.text();
+    await window.api.medicines.importCsv(content);
+    toast('Inventory imported successfully');
+    load();
+  }
+
+  async function exportCsv() {
+    await window.api.medicines.exportCsv();
+    toast('Inventory export generated');
+  }
+
+  function changeSort(key) {
+    if (sortKey === key) setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-card">
+        <div className="min-w-[260px] flex-1">
+          <Input label="Search Medicines" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, HSN, batch" />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Filter</label>
+          <select
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          >
+            <option value="all">All</option>
+            <option value="low-stock">Low Stock</option>
+            <option value="expiring-soon">Expiring Soon</option>
+            <option value="expired">Expired</option>
+          </select>
+        </div>
+        <div className="ml-auto flex gap-3">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])}
+          />
+          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+            <Upload size={16} className="mr-2" /> Bulk Import
+          </Button>
+          <Button variant="secondary" onClick={exportCsv}>
+            <Download size={16} className="mr-2" /> Export
+          </Button>
+          <Button onClick={openAddModal}>
+            <Plus size={16} className="mr-2" /> Add Medicine
+          </Button>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-card">
+        <div className="max-h-[68vh] overflow-auto">
+          <table className="min-w-full text-sm">
+            <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                {[
+                  ['name', 'Product Name'],
+                  ['pack', 'Pack'],
+                  ['hsn_code', 'HSN'],
+                  ['batch', 'Batch'],
+                  ['expiry', 'Expiry'],
+                  ['mrp', 'MRP'],
+                  ['rate', 'Rate'],
+                  ['stock_qty', 'Stock Qty'],
+                  ['reorder_level', 'Reorder Level'],
+                  ['sgst_percent', 'SGST%'],
+                  ['cgst_percent', 'CGST%'],
+                ].map(([key, label]) => (
+                  <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
+                    {label}
+                  </th>
+                ))}
+                <th className="px-4 py-3">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((item, index) => (
+                <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  <td className="px-4 py-3 font-semibold text-slate-900">{item.name}</td>
+                  <td className="px-4 py-3">{item.pack}</td>
+                  <td className="px-4 py-3">{item.hsn_code}</td>
+                  <td className="px-4 py-3">{item.batch}</td>
+                  <td className={`px-4 py-3 ${isExpired(item.expiry) ? 'text-danger' : isExpiringWithin(item.expiry) ? 'text-warning' : ''}`}>
+                    {item.expiry}
+                  </td>
+                  <td className="px-4 py-3">{formatCurrency(item.mrp)}</td>
+                  <td className="px-4 py-3">{formatCurrency(item.rate)}</td>
+                  <td className="px-4 py-3 font-semibold">{item.stock_qty}</td>
+                  <td className="px-4 py-3">{item.reorder_level}</td>
+                  <td className="px-4 py-3">{item.sgst_percent}</td>
+                  <td className="px-4 py-3">{item.cgst_percent}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, 1)}>
+                        +1
+                      </Button>
+                      <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, -1)}>
+                        -1
+                      </Button>
+                      <Button variant="secondary" className="px-3 py-2" onClick={() => openEditModal(item)}>
+                        <Pencil size={14} />
+                      </Button>
+                      <Button variant="danger" className="px-3 py-2" onClick={() => remove(item.id)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!filtered.length && (
+                <tr>
+                  <td colSpan="12" className="px-4 py-12 text-center text-slate-500">
+                    No medicines found for the current filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Modal
+        open={modalOpen}
+        title={editingId ? 'Edit Medicine' : 'Add Medicine'}
+        onClose={() => setModalOpen(false)}
+        footer={
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={submit}>
+              {editingId ? 'Update Medicine' : 'Add Medicine'}
+            </Button>
+          </div>
+        }
+      >
+        <form ref={formRef} id="medicine-form" className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
+          {[
+            ['name', 'Product Name *'],
+            ['pack', 'Pack Size *'],
+            ['hsn_code', 'HSN Code *'],
+            ['batch', 'Batch Number *'],
+            ['expiry', 'Expiry (MM/YY) *'],
+            ['mrp', 'MRP (₹) *'],
+            ['rate', 'Selling Rate (₹) *'],
+            ['purchase_rate', 'Purchase Rate (₹)'],
+            ['sgst_percent', 'SGST %'],
+            ['cgst_percent', 'CGST %'],
+            ['stock_qty', 'Current Stock Quantity *'],
+            ['reorder_level', 'Reorder Level'],
+          ].map(([key, label]) => (
+            <Input
+              key={key}
+              label={label}
+              type={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level'].includes(key) ? 'number' : 'text'}
+              value={form[key]}
+              required={['name', 'pack', 'hsn_code', 'batch', 'expiry', 'mrp', 'rate', 'stock_qty'].includes(key)}
+              min={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level'].includes(key) ? 0 : undefined}
+              step={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level'].includes(key) ? '1' : undefined}
+              onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+            />
+          ))}
+        </form>
+      </Modal>
+    </div>
+  );
+}

@@ -1,0 +1,29 @@
+@media print {
+  body {
+    background: white;
+  }
+
+  .app-shell,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page {
+    display: block !important;
+  }
+
+  .print-root {
+    max-width: 100% !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .thermal-bill {
+    width: 80mm !important;
+  }
+}
+
+.print-page {
+  min-height: 100vh;
+  background: white;
+}

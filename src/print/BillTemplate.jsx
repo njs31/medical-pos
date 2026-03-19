@@ -1,0 +1,114 @@
+import { calculateBillTotals } from '@/utils/calculations';
+import { formatCurrency, formatDate } from '@/utils/formatters';
+import { numberToIndianWords } from '@/utils/numberToWords';
+
+export default function BillTemplate({ bill }) {
+  const settings = bill.settings || {};
+  const totals = calculateBillTotals(
+    bill.items?.map((item) => ({
+      ...item,
+      product_name: item.product_name,
+      qty: item.qty,
+      rate: item.rate,
+      sgst_percent: item.sgst_percent,
+      cgst_percent: item.cgst_percent,
+    })) || [],
+    bill.discount_percent || 0,
+  );
+
+  return (
+    <div className={`print-root mx-auto bg-white p-8 text-[13px] text-slate-900 ${settings.paper_size === '80mm' ? 'thermal-bill max-w-[300px] p-4 text-[10px]' : 'max-w-5xl'}`}>
+      <div className="text-center">
+        {settings.logo_path && settings.paper_size !== '80mm' && (
+          <img src={`file://${settings.logo_path}`} alt="Shop Logo" className="mx-auto mb-3 h-16 object-contain" />
+        )}
+        <div className="text-2xl font-extrabold uppercase">{settings.shop_name}</div>
+        <div>{settings.address}</div>
+        <div>Phone: {settings.phone}</div>
+        <div>GSTIN: {settings.gstin}</div>
+      </div>
+
+      <div className="mt-4 text-center text-lg font-bold">GST INVOICE</div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 border border-slate-800 p-3">
+        <div>Patient Name: <span className="font-semibold">{bill.patient_name || '-'}</span></div>
+        <div>Invoice No: <span className="font-semibold">{bill.invoice_no}</span></div>
+        <div>Patient Phone: <span className="font-semibold">{bill.patient_phone || '-'}</span></div>
+        <div>Date: <span className="font-semibold">{formatDate(bill.date)}</span></div>
+        <div>Doctor Name: <span className="font-semibold">{bill.doctor_name || settings.default_doctor || '-'}</span></div>
+        <div></div>
+      </div>
+
+      <table className="mt-4 w-full border-collapse border border-slate-800 text-[12px]">
+        <thead>
+          <tr className="bg-slate-100">
+            {['SN', 'Product Name', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'SGST%', 'CGST%', 'Amount'].map((head) => (
+              <th key={head} className="border border-slate-800 px-2 py-2 text-left font-bold">
+                {head}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {totals.items.map((item, index) => (
+            <tr key={`${item.product_name}-${index}`}>
+              <td className="border border-slate-800 px-2 py-2">{index + 1}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.product_name}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.pack}</td>
+              <td className="border border-slate-800 px-2 py-2">{settings.show_hsn ? item.hsn_code : ''}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.batch}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.expiry}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.qty}</td>
+              <td className="border border-slate-800 px-2 py-2">{Number(item.mrp).toFixed(2)}</td>
+              <td className="border border-slate-800 px-2 py-2">{Number(item.rate).toFixed(2)}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.sgst_percent}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.cgst_percent}</td>
+              <td className="border border-slate-800 px-2 py-2 text-right">{Number(item.amount).toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="mt-4 ml-auto w-full max-w-sm space-y-1 text-sm">
+        <div className="flex justify-between border-b border-slate-200 py-1">
+          <span>Subtotal</span>
+          <span>{formatCurrency(totals.subtotal)}</span>
+        </div>
+        <div className="flex justify-between border-b border-slate-200 py-1">
+          <span>Discount</span>
+          <span>{formatCurrency(totals.discountAmount)}</span>
+        </div>
+        <div className="flex justify-between border-b border-slate-200 py-1">
+          <span>SGST Total</span>
+          <span>{formatCurrency(totals.sgstTotal)}</span>
+        </div>
+        <div className="flex justify-between border-b border-slate-200 py-1">
+          <span>CGST Total</span>
+          <span>{formatCurrency(totals.cgstTotal)}</span>
+        </div>
+        <div className="flex justify-between py-2 text-base font-bold">
+          <span>Grand Total</span>
+          <span>{formatCurrency(totals.grandTotal)}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 text-sm font-medium">GST {totals.gstFormula}</div>
+
+      <div className="mt-2 italic">Grand Total in words: {numberToIndianWords(totals.grandTotal)}</div>
+
+      <div className="mt-4 grid gap-4 md:grid-cols-[1.3fr_1fr]">
+        <div>
+          <div className="font-bold">Terms & Conditions</div>
+          <div className="mt-1 text-xs leading-5">{settings.terms}</div>
+        </div>
+        <div className="flex flex-col justify-between text-right">
+          <div className="text-center text-base font-bold">{settings.footer_message || 'GET WELL SOON'}</div>
+          <div className="mt-10">
+            <div>For {settings.shop_name}</div>
+            <div className="mt-8 font-semibold">Authorised Signatory</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
