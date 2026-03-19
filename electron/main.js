@@ -137,29 +137,93 @@ async function printBill(billId) {
   return { success: true, mode: 'print' };
 }
 
+function parseCsvRows(content) {
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const next = content[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        cell += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      row.push(cell);
+      cell = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') index += 1;
+      row.push(cell);
+      if (row.some((value) => String(value).trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+
+    cell += char;
+  }
+
+  row.push(cell);
+  if (row.some((value) => String(value).trim() !== '')) rows.push(row);
+  return rows;
+}
+
+function normalizeHeader(header) {
+  return String(header || '')
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function parseNumber(value, fallback = 0) {
+  const normalized = String(value ?? '')
+    .replace(/[₹,\s]/g, '')
+    .trim();
+  if (!normalized) return fallback;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function parseCsv(content) {
-  const [headerLine, ...rows] = content.split(/\r?\n/).filter(Boolean);
-  if (!headerLine) return [];
-  const headers = headerLine.split(',').map((part) => part.trim());
-  return rows.map((row) => {
-    const values = row.split(',').map((part) => part.trim());
+  const rows = parseCsvRows(content);
+  if (!rows.length) return [];
+
+  const [headerRow, ...dataRows] = rows;
+  const headers = headerRow.map(normalizeHeader);
+
+  return dataRows.map((values) => {
     const item = {};
     headers.forEach((header, index) => {
-      item[header] = values[index] || '';
+      item[header] = String(values[index] ?? '').trim();
     });
+
     return {
-      name: item.name || item.product_name || '',
-      pack: item.pack || '',
-      hsn_code: item.hsn_code || '',
-      batch: item.batch || '',
-      expiry: item.expiry || '',
-      mrp: Number(item.mrp || 0),
-      rate: Number(item.rate || 0),
-      purchase_rate: Number(item.purchase_rate || item.rate || 0),
-      sgst_percent: Number(item.sgst_percent || 6),
-      cgst_percent: Number(item.cgst_percent || 6),
-      stock_qty: Number(item.stock_qty || 0),
-      reorder_level: Number(item.reorder_level || 10),
+      name: item.name || item.product_name || item.product || '',
+      pack: item.pack || item.pack_size || '',
+      hsn_code: item.hsn_code || item.hsn || '',
+      batch: item.batch || item.batch_number || '',
+      expiry: item.expiry || item.exp_date || item.exp || '',
+      mrp: parseNumber(item.mrp),
+      rate: parseNumber(item.rate || item.selling_rate),
+      purchase_rate: parseNumber(item.purchase_rate, parseNumber(item.rate || item.selling_rate)),
+      sgst_percent: parseNumber(item.sgst_percent || item.sgst, 6),
+      cgst_percent: parseNumber(item.cgst_percent || item.cgst, 6),
+      stock_qty: parseNumber(item.stock_qty || item.stock || item.current_stock_quantity),
+      reorder_level: parseNumber(item.reorder_level, 10),
     };
   });
 }
