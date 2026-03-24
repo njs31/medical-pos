@@ -11,22 +11,23 @@ const DEFAULT_NEW_SHOP_NAME = 'First Care Medicals and Surgicals';
 const DEFAULT_NEW_ADDRESS =
   'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK, Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072';
 
+// Each row: [name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate, sgst, cgst, stock_qty, reorder_level, tablets_per_sheet]
 const sampleMedicines = [
-  ['TELMA BETA 40/25 MG TAB', '10', '30049079', '25009', '04/27', 239, 239, 190, 6, 6, 50, 10],
-  ['CLOSONE 0.05% OINTMENT 20GM', '20GM', '30043200', 'C74', '11/27', 491, 491, 405, 6, 6, 20, 5],
-  ['SOMPRAZ 40 MG TAB', '15', '30049039', '1419', '05/28', 180, 180, 145, 6, 6, 60, 15],
-  ['ECOSPRIN 75MG TAB', '14', '30049062', '10867', '09/26', 5.4, 5.4, 3.6, 6, 6, 100, 20],
-  ['ROSUVAS 10MG TAB', '10', '3004', '2324', '04/28', 345.9, 345.9, 280, 6, 6, 30, 10],
-  ['AZEE 500 TAB', '5', '30042011', 'AZ501', '12/27', 89, 89, 63, 6, 6, 45, 10],
-  ['PAN 40 TAB', '15', '30049039', 'P4024', '07/28', 132, 132, 91, 6, 6, 80, 20],
-  ['AUGMENTIN 625 TAB', '10', '30041029', 'AG625', '02/27', 210, 210, 165, 6, 6, 25, 10],
-  ['DOLO 650 TAB', '15', '30049099', 'D6501', '08/27', 33, 33, 22, 6, 6, 150, 25],
-  ['MONTEK LC TAB', '10', '30049099', 'ML210', '01/28', 185, 185, 130, 6, 6, 55, 10],
-  ['DERIPHYLLIN RETARD 150 TAB', '30', '30049099', 'DR150', '10/27', 64, 64, 41, 6, 6, 35, 8],
-  ['GLIMESTAR M2 TAB', '15', '30049099', 'GM221', '06/28', 198, 198, 150, 6, 6, 40, 12],
-  ['ZIFI 200 TAB', '10', '30042011', 'ZF200', '03/27', 126, 126, 94, 6, 6, 28, 8],
-  ['LIVOGEN XT TAB', '10', '30045010', 'LX110', '12/28', 174, 174, 127, 6, 6, 42, 10],
-  ['ORS POWDER', '21GM', '21069099', 'ORS55', '09/27', 22, 22, 12, 6, 6, 70, 20],
+  ['TELMA BETA 40/25 MG TAB', '10', '30049079', '25009', '04/27', 239, 239, 190, 6, 6, 50, 10, 10],
+  ['CLOSONE 0.05% OINTMENT 20GM', '20GM', '30043200', 'C74', '11/27', 491, 491, 405, 6, 6, 20, 5, 0],
+  ['SOMPRAZ 40 MG TAB', '15', '30049039', '1419', '05/28', 180, 180, 145, 6, 6, 60, 15, 15],
+  ['ECOSPRIN 75MG TAB', '14', '30049062', '10867', '09/26', 5.4, 5.4, 3.6, 6, 6, 100, 20, 14],
+  ['ROSUVAS 10MG TAB', '10', '3004', '2324', '04/28', 345.9, 345.9, 280, 6, 6, 30, 10, 10],
+  ['AZEE 500 TAB', '5', '30042011', 'AZ501', '12/27', 89, 89, 63, 6, 6, 45, 10, 5],
+  ['PAN 40 TAB', '15', '30049039', 'P4024', '07/28', 132, 132, 91, 6, 6, 80, 20, 15],
+  ['AUGMENTIN 625 TAB', '10', '30041029', 'AG625', '02/27', 210, 210, 165, 6, 6, 25, 10, 10],
+  ['DOLO 650 TAB', '15', '30049099', 'D6501', '08/27', 33, 33, 22, 6, 6, 150, 25, 15],
+  ['MONTEK LC TAB', '10', '30049099', 'ML210', '01/28', 185, 185, 130, 6, 6, 55, 10, 10],
+  ['DERIPHYLLIN RETARD 150 TAB', '30', '30049099', 'DR150', '10/27', 64, 64, 41, 6, 6, 35, 8, 30],
+  ['GLIMESTAR M2 TAB', '15', '30049099', 'GM221', '06/28', 198, 198, 150, 6, 6, 40, 12, 15],
+  ['ZIFI 200 TAB', '10', '30042011', 'ZF200', '03/27', 126, 126, 94, 6, 6, 28, 8, 10],
+  ['LIVOGEN XT TAB', '10', '30045010', 'LX110', '12/28', 174, 174, 127, 6, 6, 42, 10, 10],
+  ['ORS POWDER', '21GM', '21069099', 'ORS55', '09/27', 22, 22, 12, 6, 6, 70, 20, 0],
 ];
 
 export function getDb() {
@@ -43,8 +44,8 @@ function seedMedicines(database) {
   const insert = database.prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = database.transaction((rows) => {
@@ -56,7 +57,7 @@ function seedMedicines(database) {
 function seedSettings(database) {
   const row = database.prepare('SELECT COUNT(*) as count FROM shop_settings').get();
   if (row.count > 0) return;
-  database.prepare(`
+  database.prepare(`f
     INSERT INTO shop_settings (
       id, shop_name, address, phone, gstin, default_doctor,
       invoice_prefix, invoice_start, default_discount, terms, footer_message, paper_size
@@ -115,6 +116,7 @@ export function initDatabase() {
       cgst_percent REAL DEFAULT 6,
       stock_qty INTEGER DEFAULT 0,
       reorder_level INTEGER DEFAULT 10,
+      tablets_per_sheet INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -178,6 +180,13 @@ export function initDatabase() {
   const hasPatientPhone = billColumns.some((column) => column.name === 'patient_phone');
   if (!hasPatientPhone) {
     db.exec(`ALTER TABLE bills ADD COLUMN patient_phone TEXT`);
+  }
+
+  // Migration: add tablets_per_sheet column to existing databases
+  const medColumns = db.prepare(`PRAGMA table_info(medicines)`).all();
+  const hasTabletsPerSheet = medColumns.some((column) => column.name === 'tablets_per_sheet');
+  if (!hasTabletsPerSheet) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN tablets_per_sheet INTEGER DEFAULT 0`);
   }
 
   seedMedicines(db);

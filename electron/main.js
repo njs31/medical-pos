@@ -224,6 +224,7 @@ function parseCsv(content) {
       cgst_percent: parseNumber(item.cgst_percent || item.cgst, 6),
       stock_qty: parseNumber(item.stock_qty || item.stock || item.current_stock_quantity),
       reorder_level: parseNumber(item.reorder_level, 10),
+      tablets_per_sheet: parseNumber(item.tablets_per_sheet || item.tab_per_sheet, 0),
     };
   });
 }
@@ -242,6 +243,7 @@ function toCsv(rows) {
     'cgst_percent',
     'stock_qty',
     'reorder_level',
+    'tablets_per_sheet',
   ];
   const lines = [headers.join(',')];
   rows.forEach((row) => {
