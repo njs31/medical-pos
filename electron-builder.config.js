@@ -11,13 +11,16 @@ export default {
   mac: {
     category: 'public.app-category.business',
     target: ['dmg'],
+    icon: 'build/icon.png',
   },
   win: {
     target: ['nsis'],
+    icon: 'build/icon.png',
   },
   nsis: {
-    oneClick: false,
-    perMachine: false,
-    allowToChangeInstallationDirectory: true,
+    oneClick: true,
+    perMachine: true,
+    allowToChangeInstallationDirectory: false,
+    deleteAppDataOnUninstall: true,
   },
 };

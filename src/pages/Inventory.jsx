@@ -20,6 +20,21 @@ const initialForm = {
   stock_qty: '',
   reorder_level: 10,
   tablets_per_sheet: 0,
+  is_general: false,
+};
+
+const initialGeneralForm = {
+  name: '',
+  pack: '',
+  hsn_code: '',
+  mrp: '',
+  rate: '',
+  purchase_rate: '',
+  sgst_percent: 0,
+  cgst_percent: 0,
+  stock_qty: '',
+  reorder_level: 10,
+  is_general: true,
 };
 
 /** Format stock_qty into sheets + loose display */
@@ -44,6 +59,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
+  const [isGeneralItem, setIsGeneralItem] = useState(false);
   const fileRef = useRef(null);
   const formRef = useRef(null);
 
@@ -122,6 +138,16 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     requireAuth(() => {
       setEditingId(null);
       setForm(initialForm);
+      setIsGeneralItem(false);
+      setModalOpen(true);
+    });
+  }
+
+  function openAddGeneralModal() {
+    requireAuth(() => {
+      setEditingId(null);
+      setForm(initialGeneralForm);
+      setIsGeneralItem(true);
       setModalOpen(true);
     });
   }
@@ -130,6 +156,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     requireAuth(() => {
       setEditingId(item.id);
       setForm({ ...item });
+      setIsGeneralItem(!!item.is_general);
       setModalOpen(true);
     });
   }
@@ -142,36 +169,45 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     }
 
     try {
-      const payload = {
-        ...form,
+      const basePayload = {
         name: String(form.name || '').trim(),
         pack: String(form.pack || '').trim(),
         hsn_code: String(form.hsn_code || '').trim(),
-        batch: String(form.batch || '').trim(),
-        expiry: String(form.expiry || '').trim(),
         mrp: Number(form.mrp || 0),
         rate: Number(form.rate || 0),
         purchase_rate: Number(form.purchase_rate || 0),
-        sgst_percent: Number(form.sgst_percent || 0),
-        cgst_percent: Number(form.cgst_percent || 0),
         stock_qty: Number(form.stock_qty || 0),
         reorder_level: Number(form.reorder_level || 0),
-        tablets_per_sheet: Number(form.tablets_per_sheet || 0),
+        is_general: isGeneralItem,
       };
+
+      const payload = isGeneralItem
+        ? basePayload
+        : {
+            ...basePayload,
+            batch: String(form.batch || '').trim(),
+            expiry: String(form.expiry || '').trim(),
+            sgst_percent: Number(form.sgst_percent || 0),
+            cgst_percent: Number(form.cgst_percent || 0),
+            tablets_per_sheet: Number(form.tablets_per_sheet || 0),
+          };
+
+      const itemType = isGeneralItem ? 'General item' : 'Medicine';
 
       if (editingId) {
         await window.api.medicines.update(editingId, payload);
-        toast('Medicine updated successfully');
+        toast(`${itemType} updated successfully`);
       } else {
         await window.api.medicines.add(payload);
-        toast('Medicine added successfully');
+        toast(`${itemType} added successfully`);
       }
 
       setModalOpen(false);
       setForm(initialForm);
+      setIsGeneralItem(false);
       await load();
     } catch (error) {
-      toast(error?.message || 'Unable to save medicine', 'error');
+      toast(error?.message || 'Unable to save', 'error');
       console.error('Medicine save failed:', error);
     }
   }
@@ -267,6 +303,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </Button>
           <Button variant="secondary" onClick={exportCsv}>
             <Download size={16} className="mr-2" /> Export
+          </Button>
+          <Button onClick={openAddGeneralModal}>
+            <Plus size={16} className="mr-2" /> Add General
           </Button>
           <Button onClick={openAddModal}>
             <Plus size={16} className="mr-2" /> Add Medicine
@@ -365,52 +404,80 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
       <Modal
         open={modalOpen}
-        title={editingId ? 'Edit Medicine' : 'Add Medicine'}
-        onClose={() => setModalOpen(false)}
+        title={editingId ? (isGeneralItem ? 'Edit General Item' : 'Edit Medicine') : (isGeneralItem ? 'Add General Item' : 'Add Medicine')}
+        onClose={() => { setModalOpen(false); setIsGeneralItem(false); }}
         footer={
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>
+            <Button type="button" variant="secondary" onClick={() => { setModalOpen(false); setIsGeneralItem(false); }}>
               Cancel
             </Button>
             <Button type="button" onClick={submit}>
-              {editingId ? 'Update Medicine' : 'Add Medicine'}
+              {editingId ? (isGeneralItem ? 'Update General Item' : 'Update Medicine') : (isGeneralItem ? 'Add General Item' : 'Add Medicine')}
             </Button>
           </div>
         }
       >
         <form ref={formRef} id="medicine-form" className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
-          {[
-            ['name', 'Product Name *'],
-            ['pack', 'Pack Size *'],
-            ['hsn_code', 'HSN Code *'],
-            ['batch', 'Batch Number *'],
-            ['expiry', 'Expiry (MM/YY) *'],
-            ['mrp', 'MRP (₹) *'],
-            ['rate', 'Selling Rate (₹) *'],
-            ['purchase_rate', 'Purchase Rate (₹)'],
-            ['sgst_percent', 'SGST %'],
-            ['cgst_percent', 'CGST %'],
-            ['stock_qty', 'Current Stock Quantity (total tablets) *'],
-            ['reorder_level', 'Reorder Level'],
-            ['tablets_per_sheet', 'Tablets per Sheet (0 = N/A)'],
-          ].map(([key, label]) => (
-            <Input
-              key={key}
-              label={label}
-              type={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 'number' : 'text'}
-              value={form[key]}
-              required={['name', 'pack', 'hsn_code', 'batch', 'expiry', 'mrp', 'rate', 'stock_qty'].includes(key)}
-              min={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 0 : undefined}
-              step={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? '1' : undefined}
-              onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
-            />
-          ))}
-          {Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
-            <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
-              <span className="font-semibold">Stock preview: </span>
-              {formatStock(form.stock_qty, form.tablets_per_sheet).display}
-              <span className="text-indigo-500 ml-1">({form.stock_qty} total tablets)</span>
-            </div>
+          {isGeneralItem ? (
+            <>
+              {[
+                ['name', 'Product Name *'],
+                ['pack', 'Pack Size *'],
+                ['hsn_code', 'HSN Code'],
+                ['mrp', 'MRP (₹) *'],
+                ['rate', 'Selling Rate (₹) *'],
+                ['purchase_rate', 'Purchase Rate (₹)'],
+                ['stock_qty', 'Stock Quantity *'],
+                ['reorder_level', 'Reorder Level'],
+              ].map(([key, label]) => (
+                <Input
+                  key={key}
+                  label={label}
+                  type={['mrp', 'rate', 'purchase_rate', 'stock_qty', 'reorder_level'].includes(key) ? 'number' : 'text'}
+                  value={form[key]}
+                  required={['name', 'pack', 'mrp', 'rate', 'stock_qty'].includes(key)}
+                  min={['mrp', 'rate', 'purchase_rate', 'stock_qty', 'reorder_level'].includes(key) ? 0 : undefined}
+                  step={['mrp', 'rate', 'purchase_rate'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level'].includes(key) ? '1' : undefined}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                />
+              ))}
+            </>
+          ) : (
+            <>
+              {[
+                ['name', 'Product Name *'],
+                ['pack', 'Pack Size *'],
+                ['hsn_code', 'HSN Code *'],
+                ['batch', 'Batch Number *'],
+                ['expiry', 'Expiry (MM/YY) *'],
+                ['mrp', 'MRP (₹) *'],
+                ['rate', 'Selling Rate (₹) *'],
+                ['purchase_rate', 'Purchase Rate (₹)'],
+                ['sgst_percent', 'SGST %'],
+                ['cgst_percent', 'CGST %'],
+                ['stock_qty', 'Current Stock Quantity (total tablets) *'],
+                ['reorder_level', 'Reorder Level'],
+                ['tablets_per_sheet', 'Tablets per Sheet (0 = N/A)'],
+              ].map(([key, label]) => (
+                <Input
+                  key={key}
+                  label={label}
+                  type={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 'number' : 'text'}
+                  value={form[key]}
+                  required={['name', 'pack', 'hsn_code', 'batch', 'expiry', 'mrp', 'rate', 'stock_qty'].includes(key)}
+                  min={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 0 : undefined}
+                  step={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? '1' : undefined}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                />
+              ))}
+              {Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
+                <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
+                  <span className="font-semibold">Stock preview: </span>
+                  {formatStock(form.stock_qty, form.tablets_per_sheet).display}
+                  <span className="text-indigo-500 ml-1">({form.stock_qty} total tablets)</span>
+                </div>
+              )}
+            </>
           )}
         </form>
       </Modal>

@@ -57,7 +57,7 @@ function seedMedicines(database) {
 function seedSettings(database) {
   const row = database.prepare('SELECT COUNT(*) as count FROM shop_settings').get();
   if (row.count > 0) return;
-  database.prepare(`f
+  database.prepare(`
     INSERT INTO shop_settings (
       id, shop_name, address, phone, gstin, default_doctor,
       invoice_prefix, invoice_start, default_discount, terms, footer_message, paper_size

@@ -11,9 +11,10 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win nsis",
-    "dist:mac": "npm run build && electron-builder --mac dmg"
+    "dist": "npm run build && electron-builder --config electron-builder.config.js",
+    "dist:win": "npm run build && electron-builder --config electron-builder.config.js --win --x64",
+    "dist:win-arm": "npm run build && electron-builder --config electron-builder.config.js --win --arm64",
+    "dist:mac": "npm run build && electron-builder --config electron-builder.config.js --mac"
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.10",

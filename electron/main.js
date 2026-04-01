@@ -253,8 +253,27 @@ function toCsv(rows) {
 }
 
 app.whenReady().then(() => {
-  initDatabase();
-  createMainWindow();
+  log.info('Application starting...');
+  log.info('User Data path:', app.getPath('userData'));
+  
+  try {
+    log.info('Initializing database...');
+    initDatabase();
+    log.info('Database initialized successfully.');
+    
+    log.info('Creating main window...');
+    createMainWindow();
+    log.info('Main window created.');
+  } catch (error) {
+    log.error('Startup error:', error.message);
+    log.error('Stack:', error.stack);
+    
+    dialog.showErrorBox(
+      'Startup Error',
+      `The application failed to start correctly.\n\nError: ${error.message}\n\nThis could be due to a missing Windows dependency (Visual C++ Redistributable) or an architecture mismatch.\n\nStack Trace:\n${error.stack}`
+    );
+    app.quit();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
