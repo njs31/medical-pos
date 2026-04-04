@@ -18,7 +18,6 @@ const initialForm = {
   sgst_percent: 6,
   cgst_percent: 6,
   stock_qty: '',
-  reorder_level: 10,
   tablets_per_sheet: 0,
   is_general: false,
 };
@@ -27,13 +26,13 @@ const initialGeneralForm = {
   name: '',
   pack: '',
   hsn_code: '',
+  expiry: '',
   mrp: '',
   rate: '',
   purchase_rate: '',
   sgst_percent: 0,
   cgst_percent: 0,
   stock_qty: '',
-  reorder_level: 10,
   is_general: true,
 };
 
@@ -173,11 +172,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         name: String(form.name || '').trim(),
         pack: String(form.pack || '').trim(),
         hsn_code: String(form.hsn_code || '').trim(),
+        expiry: String(form.expiry || '').trim(),
         mrp: Number(form.mrp || 0),
-        rate: Number(form.rate || 0),
+        rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
         purchase_rate: Number(form.purchase_rate || 0),
         stock_qty: Number(form.stock_qty || 0),
-        reorder_level: Number(form.reorder_level || 0),
+        reorder_level: 0,
         is_general: isGeneralItem,
       };
 
@@ -325,11 +325,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
                   ['mrp', 'MRP'],
-                  ['rate', 'Rate'],
                   ['stock_qty', 'Stock Qty'],
                   ['tablets_per_sheet', 'Tab/Sheet'],
-                  ['reorder_level', 'Reorder Level'],
-                  ['reorder_level', 'Reorder Level'],
                 ].map(([key, label]) => (
                   <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
                     {label}
@@ -351,7 +348,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     {item.expiry}
                   </td>
                   <td className="px-4 py-3">{formatCurrency(item.mrp)}</td>
-                  <td className="px-4 py-3">{formatCurrency(item.rate)}</td>
                   <td className="px-4 py-3 font-semibold">
                     {stock.hasSheets ? (
                       <div className="flex flex-col gap-0.5">
@@ -367,7 +363,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <td className="px-4 py-3 text-center">
                     {Number(item.tablets_per_sheet) > 0 ? item.tablets_per_sheet : <span className="text-slate-300">—</span>}
                   </td>
-                  <td className="px-4 py-3">{item.reorder_level}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, 1)}>
@@ -419,22 +414,18 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <>
               {[
                 ['name', 'Product Name *'],
-                ['pack', 'Pack Size *'],
-                ['hsn_code', 'HSN Code'],
                 ['mrp', 'MRP (₹) *'],
-                ['rate', 'Selling Rate (₹) *'],
-                ['purchase_rate', 'Purchase Rate (₹)'],
+                ['expiry', 'Expiry Date *'],
                 ['stock_qty', 'Stock Quantity *'],
-                ['reorder_level', 'Reorder Level'],
               ].map(([key, label]) => (
                 <Input
                   key={key}
                   label={label}
-                  type={['mrp', 'rate', 'purchase_rate', 'stock_qty', 'reorder_level'].includes(key) ? 'number' : 'text'}
+                  type={['mrp', 'stock_qty'].includes(key) ? 'number' : 'text'}
                   value={form[key]}
-                  required={['name', 'pack', 'mrp', 'rate', 'stock_qty'].includes(key)}
-                  min={['mrp', 'rate', 'purchase_rate', 'stock_qty', 'reorder_level'].includes(key) ? 0 : undefined}
-                  step={['mrp', 'rate', 'purchase_rate'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level'].includes(key) ? '1' : undefined}
+                  required={['name', 'mrp', 'stock_qty'].includes(key)}
+                  min={['mrp', 'stock_qty'].includes(key) ? 0 : undefined}
+                  step={['mrp'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
                   onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                 />
               ))}
@@ -443,25 +434,19 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <>
               {[
                 ['name', 'Product Name *'],
-                ['pack', 'Pack Size *'],
-                ['hsn_code', 'HSN Code *'],
-                ['batch', 'Batch Number *'],
                 ['expiry', 'Expiry (MM/YY) *'],
                 ['mrp', 'MRP (₹) *'],
-                ['rate', 'Selling Rate (₹) *'],
-                ['purchase_rate', 'Purchase Rate (₹)'],
-                ['stock_qty', 'Current Stock Quantity (total tablets) *'],
-                ['reorder_level', 'Reorder Level'],
                 ['tablets_per_sheet', 'Tablets per Sheet (0 = N/A)'],
+                ['stock_qty', 'Current Stock Quantity (total tablets) *'],
               ].map(([key, label]) => (
                 <Input
                   key={key}
                   label={label}
-                  type={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 'number' : 'text'}
+                  type={['mrp', 'stock_qty', 'tablets_per_sheet'].includes(key) ? 'number' : 'text'}
                   value={form[key]}
-                  required={['name', 'pack', 'hsn_code', 'batch', 'expiry', 'mrp', 'rate', 'stock_qty'].includes(key)}
-                  min={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent', 'stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? 0 : undefined}
-                  step={['mrp', 'rate', 'purchase_rate', 'sgst_percent', 'cgst_percent'].includes(key) ? '0.01' : ['stock_qty', 'reorder_level', 'tablets_per_sheet'].includes(key) ? '1' : undefined}
+                  required={['name', 'expiry', 'mrp', 'stock_qty'].includes(key)}
+                  min={['mrp', 'stock_qty', 'tablets_per_sheet'].includes(key) ? 0 : undefined}
+                  step={['mrp'].includes(key) ? '0.01' : ['stock_qty', 'tablets_per_sheet'].includes(key) ? '1' : undefined}
                   onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                 />
               ))}

@@ -101,7 +101,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           expiry: medicine.expiry,
           qty: 1,
           mrp: medicine.mrp,
-          rate: medicine.rate,
+          rate: medicine.mrp,
           sgst_percent: medicine.sgst_percent,
           cgst_percent: medicine.cgst_percent,
           amount: medicine.rate,
@@ -280,7 +280,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Medicine', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'Amount', ''].map((heading) => (
+                {['#', 'Medicine', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -319,16 +319,6 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     </div>
                   </td>
                   <td className="px-4 py-4">{formatCurrency(item.mrp)}</td>
-                  <td className="px-4 py-4">
-                    <input
-                      className="w-24 rounded-xl border border-slate-300 px-3 py-2 font-semibold"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.rate}
-                      onChange={(e) => updateItem(index, 'rate', Number(e.target.value))}
-                    />
-                  </td>
                   <td className="px-4 py-4 font-semibold">{formatCurrency(item.amount)}</td>
                   <td className="px-4 py-4">
                     <button

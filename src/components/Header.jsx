@@ -35,12 +35,6 @@ export default function Header({ page, onQuickAction, onNavigate }) {
           <h1 className="text-2xl font-bold text-slate-900">{titles[page] || 'FirstCare'}</h1>
           <p className="text-sm text-slate-500">Billing, inventory, reports, and settings in one place</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" onClick={() => onQuickAction('inventory')}>
-            Add Medicine
-          </Button>
-          <Button onClick={() => onQuickAction('new-bill')}>Create Bill</Button>
-        </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
         {navItems.map((item) => {

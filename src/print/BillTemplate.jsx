@@ -40,7 +40,7 @@ export default function BillTemplate({ bill }) {
       <table className="mt-4 w-full border-collapse border border-slate-800 text-[12px]">
         <thead>
           <tr className="bg-slate-100">
-            {['SN', 'Product Name', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'Amount'].map((head) => (
+            {['SN', 'Product Name', 'Pack', 'Exp', 'Qty', 'MRP'].map((head) => (
               <th key={head} className="border border-slate-800 px-2 py-2 text-left font-bold">
                 {head}
               </th>
@@ -53,13 +53,9 @@ export default function BillTemplate({ bill }) {
               <td className="border border-slate-800 px-2 py-2">{index + 1}</td>
               <td className="border border-slate-800 px-2 py-2">{item.product_name}</td>
               <td className="border border-slate-800 px-2 py-2">{item.pack}</td>
-              <td className="border border-slate-800 px-2 py-2">{settings.show_hsn ? item.hsn_code : ''}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.batch}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.expiry}</td>
+               <td className="border border-slate-800 px-2 py-2">{item.expiry}</td>
               <td className="border border-slate-800 px-2 py-2">{item.qty}</td>
-              <td className="border border-slate-800 px-2 py-2">{Number(item.mrp).toFixed(2)}</td>
-              <td className="border border-slate-800 px-2 py-2">{Number(item.rate).toFixed(2)}</td>
-              <td className="border border-slate-800 px-2 py-2 text-right">{Number(item.amount).toFixed(2)}</td>
+              <td className="border border-slate-800 px-2 py-2 text-right">{Number(item.mrp).toFixed(2)}</td>
             </tr>
           ))}
         </tbody>
