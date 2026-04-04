@@ -137,6 +137,8 @@ export default function NewBill({ toast, onBillSaved }) {
 
   function clearBill() {
     if (!window.confirm('Clear the current bill?')) return;
+    setSearch('');
+    setResults([]);
     loadInitial();
   }
 
@@ -313,54 +315,69 @@ export default function NewBill({ toast, onBillSaved }) {
         </div>
       </section>
 
-      <section className="rounded-[28px] bg-slate-900 p-6 text-white shadow-card">
-        <div className="grid gap-6 2xl:grid-cols-[1.18fr_1.5fr] 2xl:items-end">
-          <div className="grid gap-4 text-sm md:grid-cols-2">
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-              <span className="text-slate-300">Subtotal</span>
-              <span className="font-semibold">{formatCurrency(totals.subtotal)}</span>
+      <section className="rounded-[32px] bg-slate-950 p-8 text-white shadow-2xl border border-white/5 relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-600/10 blur-[100px]" />
+        
+        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr] items-center">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
+            <div className="group flex flex-col justify-between rounded-[24px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Subtotal</span>
+              <span className="mt-2 text-2xl font-extrabold text-white">{formatCurrency(totals.subtotal)}</span>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-              <Input
-                label="Discount %"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={bill.discount_percent}
-                onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
-                className="border-white/20 bg-slate-950/30 text-white focus:border-blue-400"
-              />
-              <div className="mt-3 rounded-xl border border-white/10 bg-slate-950/30 px-3 py-3">
-                <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Discount Amount</div>
-                <div className="mt-1 font-semibold text-white">{formatCurrency(totals.discountAmount)}</div>
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Discount %</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={bill.discount_percent}
+                  onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
+                  className="w-20 rounded-xl bg-blue-600/20 px-3 py-1.5 text-right font-bold text-blue-400 border border-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                />
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Discount Amount</span>
+                <span className="font-bold text-white/90">{formatCurrency(totals.discountAmount)}</span>
               </div>
             </div>
-
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-1 2xl:grid-cols-[1.15fr_auto] 2xl:items-end">
-            <div className="space-y-3">
-              <div className="rounded-3xl bg-blue-600 px-5 py-5">
-                <div className="text-xs uppercase tracking-[0.24em] text-blue-100">Grand Total</div>
-                <div className="mt-2 text-4xl font-extrabold">{formatCurrency(totals.grandTotal)}</div>
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-col items-center sm:flex-row sm:justify-between gap-6 rounded-[28px] bg-gradient-to-br from-blue-600 to-indigo-700 p-6 shadow-lg shadow-blue-900/20">
+              <div className="text-center sm:text-left">
+                <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-100/70">Grand Total Payable</div>
+                <div className="mt-1 text-4xl font-extrabold tracking-tight">{formatCurrency(totals.grandTotal)}</div>
+                <div className="mt-2 text-[10px] italic font-medium text-blue-100/60 max-w-[240px] leading-relaxed">
+                  {numberToIndianWords(totals.grandTotal)}
+                </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm italic text-slate-200">
-                {numberToIndianWords(totals.grandTotal)}
+              
+              <div className="grid w-full sm:w-auto gap-3">
+                <button 
+                  onClick={() => saveBill('saved', true)}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 font-bold text-blue-700 transition hover:bg-blue-50 active:scale-95 shadow-xl shadow-blue-950/20"
+                >
+                  Save & Print
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => saveBill('draft', false)}
+                    className="rounded-xl bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20 active:scale-95"
+                  >
+                    Draft
+                  </button>
+                  <button 
+                    onClick={clearBill}
+                    className="rounded-xl bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20 active:scale-95 border border-red-500/20"
+                  >
+                    Clear Bill
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-3 2xl:min-w-[220px] 2xl:grid-cols-1">
-              <Button className="py-3 text-base" onClick={() => saveBill('saved', true)}>
-                Save & Print
-              </Button>
-              <Button className="py-3 text-base" variant="secondary" onClick={() => saveBill('draft', false)}>
-                Save Draft
-              </Button>
-              <Button className="py-3 text-base" variant="danger" onClick={clearBill}>
-                Clear Bill
-              </Button>
             </div>
           </div>
         </div>
