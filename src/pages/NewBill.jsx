@@ -33,27 +33,43 @@ function MetricTile({ label, value, accent = 'slate' }) {
   );
 }
 
-export default function NewBill({ toast, onBillSaved }) {
-  const [settings, setSettings] = useState(null);
-  const [bill, setBill] = useState(createEmptyBill(null));
+export default function NewBill({ toast, onBillSaved, persistentBill, setPersistentBill, shopSettings }) {
+  const [settings, setSettings] = useState(shopSettings);
+  const [bill, setBill] = useState(persistentBill || createEmptyBill(shopSettings));
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
 
   async function loadInitial() {
-    const [nextInvoice, loadedSettings] = await Promise.all([
-      window.api.bills.getNextInvoiceNo(),
-      window.api.settings.get(),
-    ]);
+    const nextInvoice = await window.api.bills.getNextInvoiceNo();
+    const loadedSettings = shopSettings || (await window.api.settings.get());
     setSettings(loadedSettings);
-    setBill({
-      ...createEmptyBill(loadedSettings),
-      invoice_no: nextInvoice,
-    });
+    
+    // Only clear everything if we don't have a persistent bill with items
+    if (!persistentBill || !persistentBill.items.length) {
+      const newBill = {
+        ...createEmptyBill(loadedSettings),
+        invoice_no: nextInvoice,
+      };
+      setBill(newBill);
+      setPersistentBill(newBill);
+    } else {
+      // Force update invoice no just in case
+      const updated = { ...persistentBill, invoice_no: nextInvoice };
+      setBill(updated);
+      setPersistentBill(updated);
+    }
   }
 
   useEffect(() => {
-    loadInitial();
-  }, []);
+    if (!persistentBill) {
+      loadInitial();
+    }
+  }, [persistentBill]);
+
+  // Sync back to persistence on every change
+  useEffect(() => {
+    setPersistentBill(bill);
+  }, [bill, setPersistentBill]);
 
   useEffect(() => {
     if (!search.trim()) {
@@ -132,115 +148,98 @@ export default function NewBill({ toast, onBillSaved }) {
     toast(`Bill ${saved.invoice_no} saved successfully`);
     if (shouldPrint) await window.api.bills.print(saved.id);
     onBillSaved?.();
+    setPersistentBill(null); // Explicitly clear persistence
     loadInitial();
+  }
+
+  function handlePhoneChange(val) {
+    const numeric = val.replace(/\D/g, '').slice(0, 10);
+    setBill((prev) => ({ ...prev, patient_phone: numeric }));
+  }
+
+  function handleNameChange(key, val) {
+    const textOnly = val.replace(/[0-9]/g, '');
+    setBill((prev) => ({ ...prev, [key]: textOnly }));
   }
 
   function clearBill() {
     if (!window.confirm('Clear the current bill?')) return;
     setSearch('');
     setResults([]);
+    setPersistentBill(null); // Explicitly clear
     loadInitial();
   }
 
   return (
     <div className="flex min-h-[calc(100vh-190px)] flex-col gap-5 pb-2">
-      <section className="grid gap-5 xl:grid-cols-[1.12fr_1.48fr]">
-        <div className="rounded-[28px] bg-white p-6 shadow-card">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Patient Desk</div>
-              <h2 className="mt-2 text-2xl font-extrabold text-slate-900">Patient & Invoice Details</h2>
-            </div>
-            <div className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
-              {bill.invoice_no || 'Draft'}
-            </div>
+      <section className="rounded-[28px] bg-white p-6 shadow-card">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex-shrink-0">
+            <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Patient Desk</div>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Patient & Invoice</h2>
           </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
+          
+          <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 items-end">
             <Input
-              label="Patient Phone Number"
+              label="Patient Phone"
               value={bill.patient_phone}
-              onChange={(e) => setBill((prev) => ({ ...prev, patient_phone: e.target.value }))}
+              onChange={(e) => handlePhoneChange(e.target.value)}
             />
             <Input
               label="Patient Name"
               value={bill.patient_name}
-              onChange={(e) => setBill((prev) => ({ ...prev, patient_name: e.target.value }))}
+              onChange={(e) => handleNameChange('patient_name', e.target.value)}
             />
             <Input
               label="Doctor Name"
               value={bill.doctor_name}
-              onChange={(e) => setBill((prev) => ({ ...prev, doctor_name: e.target.value }))}
+              onChange={(e) => handleNameChange('doctor_name', e.target.value)}
             />
-            <Input label="Invoice No" value={bill.invoice_no} readOnly />
             <Input
               label="Date"
               type="date"
               value={bill.date}
               onChange={(e) => setBill((prev) => ({ ...prev, date: e.target.value }))}
             />
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <MetricTile label="Items Added" value={bill.items.length} accent="slate" />
-            <MetricTile label="Bill Date" value={bill.date || todayIso()} accent="blue" />
-            <MetricTile label="Doctor" value={bill.doctor_name || settings?.default_doctor || 'Not set'} accent="emerald" />
-          </div>
-        </div>
-
-        <div className="rounded-[28px] bg-white p-6 shadow-card">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Medicine Desk</div>
-              <h2 className="mt-2 text-2xl font-extrabold text-slate-900">Search & Add Medicines</h2>
-            </div>
-            <div className="hidden rounded-3xl bg-blue-600 px-5 py-4 text-right text-white lg:block">
-              <div className="text-xs uppercase tracking-[0.2em] text-blue-100">Running Total</div>
-              <div className="mt-2 text-2xl font-extrabold">{formatCurrency(totals.grandTotal)}</div>
-            </div>
-          </div>
-
-          <div className="relative">
-            <Input
-              label="Medicine Search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Type medicine name, batch, or HSN code..."
-            />
-            {results.length > 0 && (
-              <div className="absolute z-20 mt-2 max-h-80 w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                {results.map((item) => (
-                  <button
-                    key={item.id}
-                    className="grid w-full grid-cols-[2.1fr_repeat(4,1fr)] gap-3 border-b border-slate-100 px-4 py-4 text-left text-sm transition hover:bg-blue-50"
-                    onClick={() => addItem(item)}
-                  >
-                    <span className="font-semibold text-slate-900">{item.name}</span>
-                    <span>{item.batch}</span>
-                    <span>{item.expiry}</span>
-                    <span>Stock: {item.stock_qty}</span>
-                    <span>{formatCurrency(item.mrp)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-2">
-            <MetricTile label="Subtotal" value={formatCurrency(totals.subtotal)} accent="slate" />
-            <MetricTile label="Grand Total" value={formatCurrency(totals.grandTotal)} accent="blue" />
+            <Input label="Invoice No" value={bill.invoice_no} readOnly />
           </div>
         </div>
       </section>
 
       <section className="flex min-h-[320px] flex-1 flex-col rounded-[28px] bg-white p-6 shadow-card">
-        <div className="mb-4 flex items-center justify-between gap-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Bill Items</div>
-            <h2 className="mt-2 text-2xl font-extrabold text-slate-900">Current Bill Line Items</h2>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Inventory Search & Items</h2>
           </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600">
-            {bill.items.length} medicine{bill.items.length === 1 ? '' : 's'}
+          
+          <div className="relative flex-1 max-w-xl">
+            <input
+              type="text"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
+              placeholder="🔍 Search medicine by name, batch, or HSN..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {results.length > 0 && (
+              <div className="absolute z-20 mt-2 max-h-[400px] w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl scale-in-center">
+                {results.map((item) => (
+                  <button
+                    key={item.id}
+                    className="grid w-full grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-50 px-5 py-4 text-left text-sm transition hover:bg-blue-50"
+                    onClick={() => addItem(item)}
+                  >
+                    <div>
+                      <div className="font-bold text-slate-900">{item.name}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>
+                    </div>
+                    <div className="text-slate-600">Exp: {item.expiry}</div>
+                    <div className="text-slate-600">Qty: {item.stock_qty}</div>
+                    <div className="font-bold text-blue-600 text-right">{formatCurrency(item.mrp)}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -315,20 +314,17 @@ export default function NewBill({ toast, onBillSaved }) {
         </div>
       </section>
 
-      <section className="rounded-[32px] bg-slate-950 p-8 text-white shadow-2xl border border-white/5 relative overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-600/10 blur-[100px]" />
-        
-        <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr] items-center">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
-            <div className="group flex flex-col justify-between rounded-[24px] border border-white/10 bg-white/5 p-6 transition hover:bg-white/10">
-              <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Subtotal</span>
-              <span className="mt-2 text-3xl font-extrabold text-white">{formatCurrency(totals.subtotal)}</span>
+      <section className="rounded-[28px] bg-white p-6 shadow-card border border-slate-100 mt-2">
+        <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Subtotal</div>
+              <div className="mt-1 text-2xl font-extrabold text-slate-900">{formatCurrency(totals.subtotal)}</div>
             </div>
 
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-6">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Discount %</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Discount %</span>
                 <input
                   type="number"
                   min="0"
@@ -336,43 +332,43 @@ export default function NewBill({ toast, onBillSaved }) {
                   step="0.01"
                   value={bill.discount_percent}
                   onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
-                  className="w-24 rounded-xl bg-blue-600/20 px-4 py-2 text-right text-lg font-bold text-blue-400 border border-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right font-bold text-slate-700 outline-none focus:border-blue-500 transition"
                 />
               </div>
-              <div className="mt-5 flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">Discount Amount</span>
-                <span className="text-lg font-bold text-white/90">{formatCurrency(totals.discountAmount)}</span>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-slate-500">Discount Amount</span>
+                <span className="font-bold text-slate-700">{formatCurrency(totals.discountAmount)}</span>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col items-center sm:flex-row sm:justify-between gap-6 rounded-[28px] bg-gradient-to-br from-blue-600 to-indigo-700 p-8 shadow-lg shadow-blue-900/20">
-              <div className="text-center sm:text-left">
-                <div className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/70">Grand Total Payable</div>
-                <div className="mt-2 text-5xl font-extrabold tracking-tight">{formatCurrency(totals.grandTotal)}</div>
-                <div className="mt-3 text-sm italic font-medium text-blue-100/80 max-w-[320px] leading-relaxed">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wider text-blue-500">Grand Total Payable</div>
+                <div className="mt-1 text-4xl font-black text-slate-900 tracking-tight">{formatCurrency(totals.grandTotal)}</div>
+                <div className="mt-2 text-sm italic font-medium text-slate-500">
                   {numberToIndianWords(totals.grandTotal)}
                 </div>
               </div>
-              
-              <div className="grid w-full sm:w-auto gap-3">
-                <button 
+
+              <div className="grid w-full sm:w-auto gap-3 min-w-[200px]">
+                <button
                   onClick={() => saveBill('saved', true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 font-bold text-blue-700 transition hover:bg-blue-50 active:scale-95 shadow-xl shadow-blue-950/20"
+                  className="w-full rounded-xl bg-blue-600 px-6 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
                 >
                   Save & Print
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button 
+                  <button
                     onClick={() => saveBill('draft', false)}
-                    className="rounded-xl bg-white/10 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-white/20 active:scale-95"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                   >
                     Draft
                   </button>
-                  <button 
+                  <button
                     onClick={clearBill}
-                    className="rounded-xl bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400 transition hover:bg-red-500/20 active:scale-95 border border-red-500/20"
+                    className="rounded-xl border border-red-100 bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-95"
                   >
                     Clear Bill
                   </button>

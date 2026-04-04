@@ -36,6 +36,8 @@ export default function App() {
   });
   const [toasts, setToasts] = useState([]);
   const [printBill, setPrintBill] = useState(null);
+  const [persistentBill, setPersistentBill] = useState(null);
+  const [shopSettings, setShopSettings] = useState(null);
 
   const isPrintRoute = route.startsWith('print/');
   const printBillId = isPrintRoute ? route.split('/')[1] : null;
@@ -51,7 +53,10 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!isPrintRoute) loadDashboard();
+    if (!isPrintRoute) {
+      loadDashboard();
+      window.api.settings.get().then(setShopSettings);
+    }
   }, [isPrintRoute]);
 
   useEffect(() => {
@@ -69,7 +74,15 @@ export default function App() {
       return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
     }
     if (route === 'new-bill') {
-      return <NewBill toast={toast} onBillSaved={loadDashboard} />;
+      return (
+        <NewBill 
+          toast={toast} 
+          onBillSaved={loadDashboard} 
+          persistentBill={persistentBill} 
+          setPersistentBill={setPersistentBill}
+          shopSettings={shopSettings}
+        />
+      );
     }
     if (route === 'inventory') {
       return <Inventory toast={toast} initialFilter={pageState.filter || 'all'} />;
@@ -84,7 +97,7 @@ export default function App() {
       return <Settings toast={toast} />;
     }
     return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
-  }, [dashboardSummary, pageState.filter, route]);
+  }, [dashboardSummary, pageState.filter, route, persistentBill, shopSettings]);
 
   if (isPrintRoute) {
     return <div className="print-page">{printBill ? <BillTemplate bill={printBill} /> : null}</div>;
