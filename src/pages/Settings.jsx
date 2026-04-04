@@ -21,6 +21,14 @@ const defaults = {
 
 export default function Settings({ toast }) {
   const [form, setForm] = useState(defaults);
+  const [updateStatus, setUpdateStatus] = useState({
+    checking: false,
+    available: null,
+    downloading: false,
+    progress: 0,
+    downloaded: false,
+    error: null,
+  });
 
   async function load() {
     const data = await window.api.settings.get();
@@ -29,6 +37,32 @@ export default function Settings({ toast }) {
 
   useEffect(() => {
     load();
+
+    if (!window.api?.updater) return;
+
+    const cleanup = [
+      window.api.updater.onUpdateAvailable((info) => {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, available: info }));
+        toast(`New update available: ${info.version}`);
+      }),
+      window.api.updater.onUpdateNotAvailable(() => {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, available: false }));
+        toast('Software is up to date');
+      }),
+      window.api.updater.onUpdateError((err) => {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, error: err }));
+        toast(`Update error: ${err}`, 'error');
+      }),
+      window.api.updater.onDownloadProgress((p) => {
+        setUpdateStatus((prev) => ({ ...prev, downloading: true, progress: Math.round(p.percent) }));
+      }),
+      window.api.updater.onUpdateDownloaded(() => {
+        setUpdateStatus((prev) => ({ ...prev, downloading: false, downloaded: true }));
+        toast('Update downloaded. Ready to install.');
+      }),
+    ].filter(fn => typeof fn === 'function');
+
+    return () => cleanup.forEach((unsub) => unsub());
   }, []);
 
   async function save(event) {
@@ -42,6 +76,30 @@ export default function Settings({ toast }) {
     });
     toast('Settings saved successfully');
     load();
+  }
+
+  async function checkUpdates() {
+    setUpdateStatus((prev) => ({ ...prev, checking: true, error: null, available: null }));
+    try {
+      await window.api.updater.checkForUpdates();
+    } catch (err) {
+      setUpdateStatus((prev) => ({ ...prev, checking: false, error: err.message }));
+      toast('Failed to check for updates', 'error');
+    }
+  }
+
+  async function downloadUpdate() {
+    setUpdateStatus((prev) => ({ ...prev, downloading: true }));
+    try {
+      await window.api.updater.downloadUpdate();
+    } catch (err) {
+      setUpdateStatus((prev) => ({ ...prev, downloading: false, error: err.message }));
+      toast('Download failed', 'error');
+    }
+  }
+
+  async function installUpdate() {
+    await window.api.updater.installUpdate();
   }
 
   return (
@@ -112,8 +170,51 @@ export default function Settings({ toast }) {
         </div>
       </section>
 
-      <div className="flex justify-end">
-        <Button type="submit">Save Settings</Button>
+      <section className="rounded-2xl bg-white p-6 shadow-card border-t-4 border-blue-500">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Software Updates</h2>
+            <p className="text-sm text-slate-500">Keep your Pharmacy POS running the latest version.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {updateStatus.downloaded ? (
+              <Button type="button" onClick={installUpdate} className="bg-emerald-600 hover:bg-emerald-700">
+                Install & Restart
+              </Button>
+            ) : updateStatus.available ? (
+              <Button type="button" onClick={downloadUpdate} disabled={updateStatus.downloading}>
+                {updateStatus.downloading ? `Downloading (${updateStatus.progress}%)` : 'Download Update'}
+              </Button>
+            ) : (
+              <Button type="button" variant="secondary" onClick={checkUpdates} disabled={updateStatus.checking}>
+                {updateStatus.checking ? 'Checking...' : 'Check for Updates'}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {updateStatus.downloading && (
+          <div className="mt-4">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${updateStatus.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {updateStatus.available === false && !updateStatus.checking && (
+          <p className="mt-3 text-sm font-medium text-emerald-600">✓ You are using the latest version</p>
+        )}
+
+        {updateStatus.error && (
+          <p className="mt-3 text-sm font-medium text-red-500">⚠ {updateStatus.error}</p>
+        )}
+      </section>
+
+      <div className="flex justify-end pt-2">
+        <Button type="submit">Save All Settings</Button>
       </div>
     </form>
   );

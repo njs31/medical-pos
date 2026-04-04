@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import {
   createBill,
@@ -252,6 +253,9 @@ function toCsv(rows) {
   return lines.join('\n');
 }
 
+autoUpdater.logger = log;
+autoUpdater.autoDownload = false;
+
 app.whenReady().then(() => {
   log.info('Application starting...');
   log.info('User Data path:', app.getPath('userData'));
@@ -316,6 +320,38 @@ ipcMain.handle('reports:gst', async (_, month, year) => getGstReport(month, year
 
 ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
+
+ipcMain.handle('updater:check', async () => {
+  try {
+    return await autoUpdater.checkForUpdates();
+  } catch (error) {
+    log.error('Update check failed:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('updater:download', async () => autoUpdater.downloadUpdate());
+ipcMain.handle('updater:install', async () => autoUpdater.quitAndInstall());
+
+autoUpdater.on('update-available', (info) => {
+  mainWindow?.webContents.send('updater:available', info);
+});
+
+autoUpdater.on('update-not-available', () => {
+  mainWindow?.webContents.send('updater:not-available');
+});
+
+autoUpdater.on('error', (err) => {
+  mainWindow?.webContents.send('updater:error', err.message);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  mainWindow?.webContents.send('updater:download-progress', progressObj);
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  mainWindow?.webContents.send('updater:downloaded', info);
+});
 
 process.on('uncaughtException', (error) => {
   log.error(error);

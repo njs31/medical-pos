@@ -23,4 +23,9 @@ export default {
     allowToChangeInstallationDirectory: false,
     deleteAppDataOnUninstall: true,
   },
-}; 
+  publish: {
+    provider: 'github',
+    owner: 'njs31',
+    repo: 'medical-pos',
+  },
+};

@@ -29,4 +29,34 @@ contextBridge.exposeInMainWorld('api', {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (data) => ipcRenderer.invoke('settings:save', data),
   },
+  updater: {
+    checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+    downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+    installUpdate: () => ipcRenderer.invoke('updater:install'),
+    onUpdateAvailable: (cb) => {
+      const l = (_, info) => cb(info);
+      ipcRenderer.on('updater:available', l);
+      return () => ipcRenderer.removeListener('updater:available', l);
+    },
+    onUpdateNotAvailable: (cb) => {
+      const l = () => cb();
+      ipcRenderer.on('updater:not-available', l);
+      return () => ipcRenderer.removeListener('updater:not-available', l);
+    },
+    onUpdateError: (cb) => {
+      const l = (_, err) => cb(err);
+      ipcRenderer.on('updater:error', l);
+      return () => ipcRenderer.removeListener('updater:error', l);
+    },
+    onDownloadProgress: (cb) => {
+      const l = (_, p) => cb(p);
+      ipcRenderer.on('updater:download-progress', l);
+      return () => ipcRenderer.removeListener('updater:download-progress', l);
+    },
+    onUpdateDownloaded: (cb) => {
+      const l = (_, info) => cb(info);
+      ipcRenderer.on('updater:downloaded', l);
+      return () => ipcRenderer.removeListener('updater:downloaded', l);
+    },
+  },
 });

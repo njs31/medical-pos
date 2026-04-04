@@ -12,7 +12,7 @@ function createEmptyBill(settings) {
     doctor_name: settings?.default_doctor || '',
     invoice_no: '',
     date: todayIso(),
-    discount_percent: settings?.default_discount || 0,
+    discount_percent: settings?.default_discount || '',
     items: [],
   };
 }
@@ -105,6 +105,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           sgst_percent: medicine.sgst_percent,
           cgst_percent: medicine.cgst_percent,
           amount: medicine.rate,
+          stock_qty: medicine.stock_qty,
         },
       ],
     }));
@@ -176,8 +177,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     if (/[0-9]/.test(bill.doctor_name)) {
       errs.doctor_name = 'Numbers are not allowed in doctor name';
     }
+    
+    // Stock validation
+    bill.items.forEach((item, index) => {
+      if (item.qty > item.stock_qty) {
+        errs[`item_${index}_qty`] = `You cannot bill more than what is in your current inventory. Your inventory: ${item.stock_qty}`;
+      }
+    });
+
     return errs;
-  }, [bill.patient_phone, bill.patient_name, bill.doctor_name]);
+  }, [bill.patient_phone, bill.patient_name, bill.doctor_name, bill.items]);
 
   function clearBill() {
     if (!window.confirm('Clear the current bill?')) return;
@@ -290,14 +299,24 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     {item.expiry}
                   </td>
                   <td className="px-4 py-4">
-                    <input
-                      className="w-20 rounded-xl border border-slate-300 px-3 py-2 font-semibold"
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={item.qty}
-                      onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
-                    />
+                    <div className="relative group">
+                      <input
+                        className={`w-20 rounded-xl border px-3 py-2 font-semibold transition-all ${
+                          errors[`item_${index}_qty`] ? 'border-red-500 bg-red-50 text-red-700 shake-animation' : 'border-slate-300'
+                        }`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={item.qty}
+                        onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
+                      />
+                      {errors[`item_${index}_qty`] && (
+                        <div className="absolute left-0 top-full z-10 mt-1 w-[240px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
+                          {errors[`item_${index}_qty`]}
+                          <div className="absolute -top-1 left-4 h-2 w-2 rotate-45 bg-red-600" />
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4">{formatCurrency(item.mrp)}</td>
                   <td className="px-4 py-4">
@@ -355,8 +374,9 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   max="100"
                   step="0.01"
                   value={bill.discount_percent}
-                  onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
+                  onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: e.target.value }))}
                   className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right font-bold text-slate-700 outline-none focus:border-blue-500 transition"
+                  placeholder="0.00"
                 />
               </div>
               <div className="mt-2 flex items-center justify-between">
