@@ -127,6 +127,10 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   }
 
   async function saveBill(status, shouldPrint = false) {
+    if (Object.keys(errors).length > 0) {
+      toast('Please fix the errors before saving', 'error');
+      return;
+    }
     if (!bill.items.length) {
       toast('Add at least one medicine to the bill', 'error');
       return;
@@ -153,14 +157,27 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   }
 
   function handlePhoneChange(val) {
-    const numeric = val.replace(/\D/g, '').slice(0, 10);
+    const numeric = val.replace(/\D/g, '');
     setBill((prev) => ({ ...prev, patient_phone: numeric }));
   }
 
   function handleNameChange(key, val) {
-    const textOnly = val.replace(/[0-9]/g, '');
-    setBill((prev) => ({ ...prev, [key]: textOnly }));
+    setBill((prev) => ({ ...prev, [key]: val }));
   }
+
+  const errors = useMemo(() => {
+    const errs = {};
+    if (bill.patient_phone && bill.patient_phone.length !== 10) {
+      errs.patient_phone = 'Please enter exactly 10 digits';
+    }
+    if (/[0-9]/.test(bill.patient_name)) {
+      errs.patient_name = 'Numbers are not allowed in name';
+    }
+    if (/[0-9]/.test(bill.doctor_name)) {
+      errs.doctor_name = 'Numbers are not allowed in doctor name';
+    }
+    return errs;
+  }, [bill.patient_phone, bill.patient_name, bill.doctor_name]);
 
   function clearBill() {
     if (!window.confirm('Clear the current bill?')) return;
@@ -184,16 +201,23 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               label="Patient Phone"
               value={bill.patient_phone}
               onChange={(e) => handlePhoneChange(e.target.value)}
+              error={errors.patient_phone}
+              placeholder="e.g. 9876543210"
+              maxLength={10}
             />
             <Input
               label="Patient Name"
               value={bill.patient_name}
               onChange={(e) => handleNameChange('patient_name', e.target.value)}
+              error={errors.patient_name}
+              placeholder="Patient's Full Name"
             />
             <Input
               label="Doctor Name"
               value={bill.doctor_name}
               onChange={(e) => handleNameChange('doctor_name', e.target.value)}
+              error={errors.doctor_name}
+              placeholder="Prescribing Physician"
             />
             <Input
               label="Date"
