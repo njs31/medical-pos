@@ -103,7 +103,7 @@ async function printBill(billId) {
 
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Save Invoice PDF',
-      defaultPath: `${bill?.invoice_no || `invoice-${billId}`}.pdf`,
+      defaultPath: path.join(app.getPath('documents'), `${bill?.invoice_no || `invoice-${billId}`}.pdf`),
       filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
     });
 
