@@ -321,14 +321,14 @@ export default function NewBill({ toast, onBillSaved }) {
         
         <div className="relative grid gap-8 lg:grid-cols-[1.2fr_1fr] items-center">
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2">
-            <div className="group flex flex-col justify-between rounded-[24px] border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
-              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Subtotal</span>
-              <span className="mt-2 text-2xl font-extrabold text-white">{formatCurrency(totals.subtotal)}</span>
+            <div className="group flex flex-col justify-between rounded-[24px] border border-white/10 bg-white/5 p-6 transition hover:bg-white/10">
+              <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Subtotal</span>
+              <span className="mt-2 text-3xl font-extrabold text-white">{formatCurrency(totals.subtotal)}</span>
             </div>
 
-            <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+            <div className="rounded-[24px] border border-white/10 bg-white/5 p-6">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Discount %</span>
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Discount %</span>
                 <input
                   type="number"
                   min="0"
@@ -336,22 +336,22 @@ export default function NewBill({ toast, onBillSaved }) {
                   step="0.01"
                   value={bill.discount_percent}
                   onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
-                  className="w-20 rounded-xl bg-blue-600/20 px-3 py-1.5 text-right font-bold text-blue-400 border border-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="w-24 rounded-xl bg-blue-600/20 px-4 py-2 text-right text-lg font-bold text-blue-400 border border-blue-500/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                 />
               </div>
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">Discount Amount</span>
-                <span className="font-bold text-white/90">{formatCurrency(totals.discountAmount)}</span>
+              <div className="mt-5 flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500">Discount Amount</span>
+                <span className="text-lg font-bold text-white/90">{formatCurrency(totals.discountAmount)}</span>
               </div>
             </div>
           </div>
 
           <div className="flex flex-col gap-6">
-            <div className="flex flex-col items-center sm:flex-row sm:justify-between gap-6 rounded-[28px] bg-gradient-to-br from-blue-600 to-indigo-700 p-6 shadow-lg shadow-blue-900/20">
+            <div className="flex flex-col items-center sm:flex-row sm:justify-between gap-6 rounded-[28px] bg-gradient-to-br from-blue-600 to-indigo-700 p-8 shadow-lg shadow-blue-900/20">
               <div className="text-center sm:text-left">
-                <div className="text-[10px] font-bold uppercase tracking-[0.3em] text-blue-100/70">Grand Total Payable</div>
-                <div className="mt-1 text-4xl font-extrabold tracking-tight">{formatCurrency(totals.grandTotal)}</div>
-                <div className="mt-2 text-[10px] italic font-medium text-blue-100/60 max-w-[240px] leading-relaxed">
+                <div className="text-xs font-bold uppercase tracking-[0.3em] text-blue-100/70">Grand Total Payable</div>
+                <div className="mt-2 text-5xl font-extrabold tracking-tight">{formatCurrency(totals.grandTotal)}</div>
+                <div className="mt-3 text-sm italic font-medium text-blue-100/80 max-w-[320px] leading-relaxed">
                   {numberToIndianWords(totals.grandTotal)}
                 </div>
               </div>
