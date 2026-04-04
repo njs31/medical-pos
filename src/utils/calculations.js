@@ -21,8 +21,10 @@ export function calculateLineItem(item, discountRatio = 1) {
 }
 
 export function calculateBillTotals(items = [], discountPercent = 0) {
+  const rawDiscount = Number(discountPercent || 0);
+  const discountPercent_capped = Math.max(0, Math.min(100, rawDiscount));
   const subtotal = round2(items.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.rate || 0), 0));
-  const discountAmount = round2(subtotal * (Number(discountPercent || 0) / 100));
+  const discountAmount = round2(subtotal * (discountPercent_capped / 100));
   const taxableAmount = round2(subtotal - discountAmount);
   const discountRatio = subtotal > 0 ? taxableAmount / subtotal : 1;
 
@@ -57,5 +59,6 @@ export function calculateBillTotals(items = [], discountPercent = 0) {
     cgstTotal,
     grandTotal,
     gstFormula: '',
+    discountPercent: discountPercent_capped,
   };
 }

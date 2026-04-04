@@ -54,6 +54,7 @@ function integerToIndianWords(num) {
 
 export function numberToIndianWords(value = 0) {
   const amount = Number(value || 0);
+  if (amount < 0) return `Negative ${numberToIndianWords(Math.abs(amount))}`;
   const rupees = Math.floor(amount);
   const paise = Math.round((amount - rupees) * 100);
 

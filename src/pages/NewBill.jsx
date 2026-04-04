@@ -326,6 +326,7 @@ export default function NewBill({ toast, onBillSaved }) {
                 label="Discount %"
                 type="number"
                 min="0"
+                max="100"
                 step="0.01"
                 value={bill.discount_percent}
                 onChange={(e) => setBill((prev) => ({ ...prev, discount_percent: Number(e.target.value) }))}
