@@ -23,9 +23,7 @@ export default function BillTemplate({ bill }) {
           <img src={`file://${settings.logo_path}`} alt="Shop Logo" className="mx-auto mb-3 h-16 object-contain" />
         )}
         <div className="text-2xl font-extrabold uppercase">{settings.shop_name}</div>
-        <div>{settings.address}</div>
-        <div>Phone: {settings.phone}</div>
-        <div>GSTIN: {settings.gstin}</div>
+        <div>{settings.address} | Phone: {settings.phone}</div>
       </div>
 
       <div className="mt-4 text-center text-lg font-bold">INVOICE</div>
@@ -83,21 +81,7 @@ export default function BillTemplate({ bill }) {
       </div>
 
 
-      <div className="mt-2 italic">Grand Total in words: {numberToIndianWords(totals.grandTotal)}</div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[1.3fr_1fr]">
-        <div>
-          <div className="font-bold">Terms & Conditions</div>
-          <div className="mt-1 text-xs leading-5">{settings.terms}</div>
-        </div>
-        <div className="flex flex-col justify-between text-right">
-          <div className="text-center text-base font-bold">{settings.footer_message || 'GET WELL SOON'}</div>
-          <div className="mt-10">
-            <div>For {settings.shop_name}</div>
-            <div className="mt-8 font-semibold">Authorised Signatory</div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
