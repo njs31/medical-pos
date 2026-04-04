@@ -23,4 +23,4 @@ export default {
     allowToChangeInstallationDirectory: false,
     deleteAppDataOnUninstall: true,
   },
-};
+}; 
