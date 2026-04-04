@@ -224,10 +224,9 @@ export default function NewBill({ toast, onBillSaved }) {
             )}
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             <MetricTile label="Subtotal" value={formatCurrency(totals.subtotal)} accent="slate" />
-            <MetricTile label="SGST" value={formatCurrency(totals.sgstTotal)} accent="amber" />
-            <MetricTile label="CGST" value={formatCurrency(totals.cgstTotal)} accent="amber" />
+            <MetricTile label="Grand Total" value={formatCurrency(totals.grandTotal)} accent="blue" />
           </div>
         </div>
       </section>
@@ -247,7 +246,7 @@ export default function NewBill({ toast, onBillSaved }) {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Medicine', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'SGST%', 'CGST%', 'Amount', ''].map((heading) => (
+                {['#', 'Medicine', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -286,8 +285,6 @@ export default function NewBill({ toast, onBillSaved }) {
                       onChange={(e) => updateItem(index, 'rate', Number(e.target.value))}
                     />
                   </td>
-                  <td className="px-4 py-4">{item.sgst_percent}</td>
-                  <td className="px-4 py-4">{item.cgst_percent}</td>
                   <td className="px-4 py-4 font-semibold">{formatCurrency(item.amount)}</td>
                   <td className="px-4 py-4">
                     <button
@@ -340,15 +337,6 @@ export default function NewBill({ toast, onBillSaved }) {
               </div>
             </div>
 
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-              <span className="text-slate-300">SGST Total</span>
-              <span className="font-semibold">{formatCurrency(totals.sgstTotal)}</span>
-            </div>
-
-            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
-              <span className="text-slate-300">CGST Total</span>
-              <span className="font-semibold">{formatCurrency(totals.cgstTotal)}</span>
-            </div>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-1 2xl:grid-cols-[1.15fr_auto] 2xl:items-end">

@@ -56,6 +56,6 @@ export function calculateBillTotals(items = [], discountPercent = 0) {
     sgstTotal,
     cgstTotal,
     grandTotal,
-    gstFormula,
+    gstFormula: '',
   };
 }

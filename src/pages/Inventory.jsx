@@ -329,8 +329,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['stock_qty', 'Stock Qty'],
                   ['tablets_per_sheet', 'Tab/Sheet'],
                   ['reorder_level', 'Reorder Level'],
-                  ['sgst_percent', 'SGST%'],
-                  ['cgst_percent', 'CGST%'],
+                  ['reorder_level', 'Reorder Level'],
                 ].map(([key, label]) => (
                   <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
                     {label}
@@ -369,8 +368,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     {Number(item.tablets_per_sheet) > 0 ? item.tablets_per_sheet : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-4 py-3">{item.reorder_level}</td>
-                  <td className="px-4 py-3">{item.sgst_percent}</td>
-                  <td className="px-4 py-3">{item.cgst_percent}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, 1)}>
@@ -392,7 +389,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               })}
               {!filtered.length && (
                 <tr>
-                  <td colSpan="13" className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan="11" className="px-4 py-12 text-center text-slate-500">
                     No medicines found for the current filters.
                   </td>
                 </tr>
@@ -453,8 +450,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 ['mrp', 'MRP (₹) *'],
                 ['rate', 'Selling Rate (₹) *'],
                 ['purchase_rate', 'Purchase Rate (₹)'],
-                ['sgst_percent', 'SGST %'],
-                ['cgst_percent', 'CGST %'],
                 ['stock_qty', 'Current Stock Quantity (total tablets) *'],
                 ['reorder_level', 'Reorder Level'],
                 ['tablets_per_sheet', 'Tablets per Sheet (0 = N/A)'],

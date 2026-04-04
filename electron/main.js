@@ -96,7 +96,7 @@ async function printBill(billId) {
   if (!printers.length) {
     const pdfBuffer = await printWindow.webContents.printToPDF({
       printBackground: true,
-      pageSize: settings.paper_size === '80mm' ? 'A4' : 'A4',
+      pageSize: settings.paper_size || 'A4',
       landscape: false,
     });
 
@@ -123,7 +123,7 @@ async function printBill(billId) {
           silent: false,
           printBackground: true,
           margins: { marginType: 'default' },
-          pageSize: settings.paper_size === '80mm' ? { width: 315000, height: 1100000 } : 'A4',
+          pageSize: settings.paper_size === '80mm' ? { width: 315000, height: 1100000 } : (settings.paper_size || 'A4'),
         },
         (success, errorType) => {
           if (!success) reject(new Error(errorType || 'Printing failed'));

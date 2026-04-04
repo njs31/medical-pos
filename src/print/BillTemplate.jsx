@@ -17,7 +17,7 @@ export default function BillTemplate({ bill }) {
   );
 
   return (
-    <div className={`print-root mx-auto bg-white p-8 text-[13px] text-slate-900 ${settings.paper_size === '80mm' ? 'thermal-bill max-w-[300px] p-4 text-[10px]' : 'max-w-5xl'}`}>
+    <div className={`print-root mx-auto bg-white p-4 text-[12px] text-slate-900 ${settings.paper_size === '80mm' ? 'thermal-bill max-w-[300px] p-4 text-[10px]' : 'max-w-[148mm] min-h-[210mm]'}`}>
       <div className="text-center">
         {settings.logo_path && settings.paper_size !== '80mm' && (
           <img src={`file://${settings.logo_path}`} alt="Shop Logo" className="mx-auto mb-3 h-16 object-contain" />
@@ -28,7 +28,7 @@ export default function BillTemplate({ bill }) {
         <div>GSTIN: {settings.gstin}</div>
       </div>
 
-      <div className="mt-4 text-center text-lg font-bold">GST INVOICE</div>
+      <div className="mt-4 text-center text-lg font-bold">INVOICE</div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 border border-slate-800 p-3">
         <div>Patient Name: <span className="font-semibold">{bill.patient_name || '-'}</span></div>
@@ -42,7 +42,7 @@ export default function BillTemplate({ bill }) {
       <table className="mt-4 w-full border-collapse border border-slate-800 text-[12px]">
         <thead>
           <tr className="bg-slate-100">
-            {['SN', 'Product Name', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'SGST%', 'CGST%', 'Amount'].map((head) => (
+            {['SN', 'Product Name', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Rate', 'Amount'].map((head) => (
               <th key={head} className="border border-slate-800 px-2 py-2 text-left font-bold">
                 {head}
               </th>
@@ -61,8 +61,6 @@ export default function BillTemplate({ bill }) {
               <td className="border border-slate-800 px-2 py-2">{item.qty}</td>
               <td className="border border-slate-800 px-2 py-2">{Number(item.mrp).toFixed(2)}</td>
               <td className="border border-slate-800 px-2 py-2">{Number(item.rate).toFixed(2)}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.sgst_percent}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.cgst_percent}</td>
               <td className="border border-slate-800 px-2 py-2 text-right">{Number(item.amount).toFixed(2)}</td>
             </tr>
           ))}
@@ -78,21 +76,12 @@ export default function BillTemplate({ bill }) {
           <span>Discount</span>
           <span>{formatCurrency(totals.discountAmount)}</span>
         </div>
-        <div className="flex justify-between border-b border-slate-200 py-1">
-          <span>SGST Total</span>
-          <span>{formatCurrency(totals.sgstTotal)}</span>
-        </div>
-        <div className="flex justify-between border-b border-slate-200 py-1">
-          <span>CGST Total</span>
-          <span>{formatCurrency(totals.cgstTotal)}</span>
-        </div>
         <div className="flex justify-between py-2 text-base font-bold">
           <span>Grand Total</span>
           <span>{formatCurrency(totals.grandTotal)}</span>
         </div>
       </div>
 
-      <div className="mt-3 text-sm font-medium">GST {totals.gstFormula}</div>
 
       <div className="mt-2 italic">Grand Total in words: {numberToIndianWords(totals.grandTotal)}</div>
 
