@@ -119,7 +119,13 @@ export function getBills(filters = {}) {
 
 export function getBillItems(billId) {
   return getDb()
-    .prepare('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY id ASC')
+    .prepare(`
+      SELECT bill_items.*, medicines.tablets_per_sheet 
+      FROM bill_items 
+      LEFT JOIN medicines ON bill_items.medicine_id = medicines.id
+      WHERE bill_id = ? 
+      ORDER BY bill_items.id ASC
+    `)
     .all(billId);
 }
 

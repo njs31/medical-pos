@@ -2,6 +2,15 @@ import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
+function formatBillQty(qty, tps) {
+  const quantity = Number(qty) || 0;
+  const perSheet = Number(tps) || 0;
+  if (perSheet <= 0) return String(quantity);
+  const sheets = Math.floor(quantity / perSheet);
+  const loose = quantity % perSheet;
+  return `${sheets}S and ${loose}T`;
+}
+
 export default function BillTemplate({ bill }) {
   const settings = bill.settings || {};
   const totals = calculateBillTotals(
@@ -40,7 +49,7 @@ export default function BillTemplate({ bill }) {
       <table className="mt-4 w-full border-collapse border border-slate-800 text-[12px]">
         <thead>
           <tr className="bg-slate-100">
-            {['SN', 'Product Name', 'Pack', 'Exp', 'Qty', 'MRP'].map((head) => (
+            {['SN', 'Product Name', 'Batch No', 'Exp', 'Qty', 'Amount'].map((head) => (
               <th key={head} className="border border-slate-800 px-2 py-2 text-left font-bold">
                 {head}
               </th>
@@ -52,9 +61,9 @@ export default function BillTemplate({ bill }) {
             <tr key={`${item.product_name}-${index}`}>
               <td className="border border-slate-800 px-2 py-2">{index + 1}</td>
               <td className="border border-slate-800 px-2 py-2">{item.product_name}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.pack}</td>
+              <td className="border border-slate-800 px-2 py-2">{item.batch}</td>
                <td className="border border-slate-800 px-2 py-2">{item.expiry}</td>
-              <td className="border border-slate-800 px-2 py-2">{item.qty}</td>
+              <td className="border border-slate-800 px-2 py-2">{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
               <td className="border border-slate-800 px-2 py-2 text-right">{Number(item.mrp).toFixed(2)}</td>
             </tr>
           ))}
@@ -66,11 +75,11 @@ export default function BillTemplate({ bill }) {
           <span>Subtotal</span>
           <span>{formatCurrency(totals.subtotal)}</span>
         </div>
-        <div className="flex justify-between border-b border-slate-200 py-1">
-          <span>Discount</span>
-          <span>{formatCurrency(totals.discountAmount)}</span>
+        <div className="flex justify-between border-b border-slate-200 py-1 font-bold text-red-600 bg-red-50 px-2 rounded">
+          <span>Discount (Save)</span>
+          <span>- {formatCurrency(totals.discountAmount)}</span>
         </div>
-        <div className="flex justify-between py-2 text-base font-bold">
+        <div className="flex justify-between py-2 text-base font-bold px-2">
           <span>Grand Total</span>
           <span>{formatCurrency(totals.grandTotal)}</span>
         </div>
