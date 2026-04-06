@@ -20,7 +20,16 @@ const initialForm = {
   stock_qty: '',
   tablets_per_sheet: 0,
   supplier_name: '',
+  item_category: 'Medicine',
+  rack_number: '',
 };
+
+function getCategoryBadge(category) {
+  if (category === 'Medicine') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 mr-2" title="Medicine">M</span>;
+  if (category === 'General') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-blue-100 text-blue-700 mr-2" title="General">G</span>;
+  if (category === 'Surgical') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-green-100 text-green-700 mr-2" title="Surgical">S</span>;
+  return null;
+}
 
 /** Format stock_qty into sheets + loose display */
 function formatStock(totalQty, tabletsPerSheet) {
@@ -30,9 +39,9 @@ function formatStock(totalQty, tabletsPerSheet) {
   const sheets = Math.floor(qty / perSheet);
   const loose = qty % perSheet;
   const parts = [];
-  if (sheets > 0) parts.push(`${sheets} sheet${sheets !== 1 ? 's' : ''}`);
-  if (loose > 0 || sheets === 0) parts.push(`${loose} loose`);
-  return { display: parts.join(' + '), sheets, loose, hasSheets: true };
+  if (sheets > 0) parts.push(`${sheets}S`);
+  if (loose > 0 || sheets === 0) parts.push(`${loose}T`);
+  return { display: parts.join(' and '), sheets, loose, hasSheets: true };
 }
 
 export default function Inventory({ toast, initialFilter = 'all' }) {
@@ -138,7 +147,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     requireAuth(() => {
       setEditingId(item.id);
       setForm({ ...item, pack: item.pack || '' });
-      setItemCategory('Medicine');
+      setItemCategory(item.item_category || 'Medicine');
       setModalOpen(true);
     });
   }
@@ -154,7 +163,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       const payload = {
         name: String(form.name || '').trim(),
         pack: String(form.pack || '').trim(),
-        hsn_code: String(form.hsn_code || '').trim(),
+        hsn_code: '', // kept for db constraint
         batch: String(form.batch || '').trim(),
         expiry: String(form.expiry || '').trim(),
         mrp: Number(form.mrp || 0),
@@ -166,6 +175,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         cgst_percent: itemCategory === 'Medicine' ? Number(form.cgst_percent || 0) : 0,
         tablets_per_sheet: itemCategory === 'Medicine' ? Number(form.tablets_per_sheet || 0) : 0,
         supplier_name: form.supplier_name || '',
+        item_category: itemCategory,
+        rack_number: String(form.rack_number || '').trim(),
       };
 
       const itemType = itemCategory;
@@ -297,13 +308,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               <tr>
                 {[
                   ['name', 'Product Name'],
+                  ['rack_number', 'Rack #'],
                   ['pack', 'Pack'],
-                  ['hsn_code', 'HSN'],
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
                   ['mrp', 'MRP'],
                   ['stock_qty', 'Stock Qty'],
-                  ['tablets_per_sheet', 'Tab/Sheet'],
                   ['supplier_name', 'Supplier'],
                 ].map(([key, label]) => (
                   <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
@@ -318,9 +328,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 const stock = formatStock(item.stock_qty, item.tablets_per_sheet);
                 return (
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                  <td className="px-4 py-3 font-semibold text-slate-900">{item.name}</td>
+                  <td className="px-4 py-3 font-semibold text-slate-900 flex items-center">
+                    {getCategoryBadge(item.item_category || 'Medicine')}
+                    {item.name}
+                  </td>
+                  <td className="px-4 py-3">{item.rack_number}</td>
                   <td className="px-4 py-3">{item.pack}</td>
-                  <td className="px-4 py-3">{item.hsn_code}</td>
                   <td className="px-4 py-3">{item.batch}</td>
                   <td className={`px-4 py-3 ${isExpired(item.expiry) ? 'text-danger' : isExpiringWithin(item.expiry) ? 'text-warning' : ''}`}>
                     {item.expiry}
@@ -338,9 +351,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                       item.stock_qty
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    {Number(item.tablets_per_sheet) > 0 ? item.tablets_per_sheet : <span className="text-slate-300">—</span>}
-                  </td>
+
                   <td className="px-4 py-3 truncate max-w-[150px]" title={item.supplier_name}>
                     {item.supplier_name?.[0] ? item.supplier_name : <span className="text-slate-300">—</span>}
                   </td>
@@ -421,6 +432,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
           {[
             ['name', 'Product Name *'],
+            ['rack_number', 'Rack Number'],
             ['expiry', 'Expiry Date *'],
             ['mrp', 'MRP (₹) *'],
             ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets) *' : 'Stock Quantity *'],

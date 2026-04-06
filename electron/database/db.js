@@ -136,7 +136,9 @@ export function initDatabase() {
       reorder_level INTEGER DEFAULT 10,
       tablets_per_sheet INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      supplier_name TEXT
+      supplier_name TEXT,
+      item_category TEXT DEFAULT 'Medicine',
+      rack_number TEXT
     );
 
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -218,6 +220,16 @@ export function initDatabase() {
   const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
   if (!hasSupplierName) {
     db.exec(`ALTER TABLE medicines ADD COLUMN supplier_name TEXT`);
+  }
+
+  const hasItemCategory = medColumns.some((column) => column.name === 'item_category');
+  if (!hasItemCategory) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN item_category TEXT DEFAULT 'Medicine'`);
+  }
+
+  const hasRackNumber = medColumns.some((column) => column.name === 'rack_number');
+  if (!hasRackNumber) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN rack_number TEXT DEFAULT ''`);
   }
 
   seedMedicines(db);

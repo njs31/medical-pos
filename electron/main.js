@@ -228,6 +228,8 @@ function parseCsv(content) {
       reorder_level: parseNumber(item.reorder_level, 10),
       tablets_per_sheet: parseNumber(item.tablets_per_sheet || item.tab_per_sheet, 0),
       supplier_name: item.supplier_name || item.supplier || '',
+      item_category: item.item_category || item.category || 'Medicine',
+      rack_number: item.rack_number || item.rack || '',
     };
   });
 }
@@ -248,6 +250,8 @@ function toCsv(rows) {
     'reorder_level',
     'tablets_per_sheet',
     'supplier_name',
+    'item_category',
+    'rack_number',
   ];
   const lines = [headers.join(',')];
   rows.forEach((row) => {

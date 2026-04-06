@@ -33,10 +33,10 @@ export function addMedicine(data) {
   const stmt = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number
     )
   `);
   const info = stmt.run(data);
@@ -59,7 +59,9 @@ export function updateMedicine(id, data) {
       stock_qty = @stock_qty,
       reorder_level = @reorder_level,
       tablets_per_sheet = @tablets_per_sheet,
-      supplier_name = @supplier_name
+      supplier_name = @supplier_name,
+      item_category = @item_category,
+      rack_number = @rack_number
     WHERE id = @id
   `).run({ ...data, id });
   return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(id);
@@ -78,10 +80,10 @@ export function importMedicines(rows) {
   const insert = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number
     )
   `);
   const tx = getDb().transaction((items) => items.forEach((item) => insert.run(item)));
