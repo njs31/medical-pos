@@ -39,7 +39,7 @@ export function calculateBillTotals(items = [], discountPercent = 0) {
     grandTotal = round2(grandTotal + values.sgstAmount + values.cgstAmount);
     return {
       ...item,
-      amount: values.lineTotal,
+      amount: values.baseAmount,
       base_amount: values.baseAmount,
       sgst_amount: values.sgstAmount,
       cgst_amount: values.cgstAmount,
