@@ -50,7 +50,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const formRef = useRef(null);
 
   // --- Authentication state ---
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return sessionStorage.getItem('inventory_auth') === 'true';
+  });
   const [loginOpen, setLoginOpen] = useState(false);
   const pendingAction = useRef(null);
 
@@ -69,6 +71,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
   function handleAuthenticated() {
     setIsAuthenticated(true);
+    sessionStorage.setItem('inventory_auth', 'true');
     setLoginOpen(false);
     // Run the action that was blocked
     if (pendingAction.current) {
@@ -79,7 +82,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
   function handleLogout() {
     setIsAuthenticated(false);
-    toast?.('Inventory editing locked', 'success');
+    sessionStorage.removeItem('inventory_auth');
+    toast?.('Logged out successfully', 'success');
   }
 
   async function load() {
@@ -250,17 +254,21 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100"
-              title="Click to lock editing"
+              title="Click to logout"
             >
               <ShieldCheck size={14} />
-              Unlocked
+              Logout
               <LogOut size={12} className="ml-0.5 opacity-60" />
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700">
+            <button
+              onClick={() => requireAuth(() => {})}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
+              title="Click to login"
+            >
               <Lock size={14} />
-              Locked
-            </span>
+              Login
+            </button>
           )}
 
           <input
@@ -415,7 +423,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             ['name', 'Product Name *'],
             ['expiry', 'Expiry Date *'],
             ['mrp', 'MRP (₹) *'],
-            ['stock_qty', 'Stock Quantity *'],
+            ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets) *' : 'Stock Quantity *'],
           ].map(([key, label]) => (
             <Input
               key={key}
