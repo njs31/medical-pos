@@ -124,7 +124,7 @@ async function printBill(billId) {
         {
           silent: false,
           printBackground: true,
-          margins: { marginType: 'default' },
+          margins: { marginType: 'custom', top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 },
           pageSize: settings.paper_size === '80mm' ? { width: 315000, height: 1100000 } : (settings.paper_size || 'A4'),
         },
         (success, errorType) => {

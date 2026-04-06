@@ -7,7 +7,7 @@ function formatBillQty(qty, tps) {
   if (perSheet <= 0) return String(quantity);
   const sheets = Math.floor(quantity / perSheet);
   const loose = quantity % perSheet;
-  return `${sheets}S and ${loose}T`;
+  return `${sheets}S, ${loose}T`;
 }
 
 export default function BillTemplate({ bill }) {
@@ -25,99 +25,76 @@ export default function BillTemplate({ bill }) {
   );
 
   return (
-    <div className="print-root mx-auto bg-white text-slate-900 border border-black max-w-[800px] min-h-[500px]">
-      <div className="p-6">
-        {/* Header Section */}
-        <div className="text-left mb-6">
-          <h1 className="text-3xl font-bold uppercase text-black mb-3 leading-none">
-            {settings.shop_name}
-          </h1>
-          <div className="text-[13px] text-slate-800 uppercase space-y-1 w-full max-w-3xl">
-            {settings.address && settings.address.split(', ').map((part, index, array) => {
-               // Heuristic to break address similar to image
-               if (index === 0) return <span key={index}>{part}, </span>;
-               if (index === array.length - 1) return <span key={index}>{part}</span>;
-               return <span key={index}>{part}, </span>;
-            })}
-            {/* Hard-coded style as per image request if the DB address is one line */}
-            <div className="mt-1">
-               {settings.address || 'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK,'} <br/>
-               {settings.address ? `Phone: ${settings.phone}` : 'Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072 | Phone: +91 91 00 4382 23'}
-            </div>
-          </div>
+    <div className="print-root mx-auto bg-white text-slate-900 border border-black" style={{ maxWidth: '700px', fontSize: '11px', lineHeight: '1.4' }}>
+      {/* Header */}
+      <div style={{ padding: '12px 16px 8px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 'bold', textTransform: 'uppercase', margin: 0, lineHeight: 1.1 }}>
+          {settings.shop_name}
+        </h1>
+        <div style={{ fontSize: '10px', marginTop: '4px', color: '#334155', textTransform: 'uppercase' }}>
+          {settings.address && <span>{settings.address} |{' '}</span>}
+          Phone: {settings.phone}
         </div>
       </div>
 
-      <div className="w-full border-t border-black"></div>
+      <div style={{ borderTop: '1px solid black' }}></div>
 
       {/* Invoice Title */}
-      <h2 className="text-center font-bold text-[15px] tracking-wide py-3">INVOICE</h2>
+      <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '12px', padding: '6px 0' }}>INVOICE</div>
 
-      {/* Details Box */}
-      <div className="px-6 pb-6">
-        <div className="border border-slate-500 mx-auto max-w-[600px] grid grid-cols-2 gap-y-4 gap-x-12 p-4 text-[13px] mb-6 shadow-sm">
-          <div className="space-y-4 text-slate-800">
-            <div>Patient Name: <span className="font-bold text-slate-900">{bill.patient_name || '-'}</span></div>
-            <div>Patient Phone: <span className="font-bold text-slate-900">{bill.patient_phone || '-'}</span></div>
-            <div>Doctor Name: <span className="font-bold text-slate-900">{bill.doctor_name || settings.default_doctor || '-'}</span></div>
-          </div>
-          <div className="space-y-4 text-slate-800">
-            <div>Invoice No: <span className="font-bold text-slate-900">{bill.invoice_no}</span></div>
-            <div>Date: <span className="font-bold text-slate-900">{formatDate(bill.date)}</span></div>
-            <div>Time: <span className="font-bold text-slate-900">{new Date(bill.created_at || new Date()).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</span></div>
-          </div>
+      <div style={{ padding: '0 16px 12px' }}>
+        {/* Patient / Invoice Info */}
+        <div style={{ border: '1px solid #94a3b8', padding: '8px 10px', marginBottom: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px 16px', fontSize: '10.5px' }}>
+          <div>Patient Name: <b>{bill.patient_name || '-'}</b></div>
+          <div>Invoice No: <b>{bill.invoice_no}</b></div>
+          <div>Date: <b>{formatDate(bill.date)}</b></div>
+          <div>Patient Phone: <b>{bill.patient_phone || '-'}</b></div>
+          <div>Doctor Name: <b>{bill.doctor_name || settings.default_doctor || '-'}</b></div>
+          <div>Time: <b>{new Date(bill.created_at || new Date()).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</b></div>
         </div>
 
-        {/* Table */}
-        <div className="flex justify-center max-w-[600px] mx-auto">
-          <table className="w-full border-collapse border border-slate-500 text-[13px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-500">
-                {['SN', 'Product Name', 'Batch No', 'Exp', 'Qty', 'Amount'].map((head, index) => (
-                  <th key={head} className={`border border-slate-500 px-3 py-2.5 font-bold ${index === 0 || index === 2 || index === 3 || index === 4 || index === 5 ? "" : ""} ${index === 5 ? 'text-right' : 'text-left'} text-slate-800`}>
-                    {head}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {totals.items.map((item, index) => (
-                <tr key={`${item.product_name}-${index}`} className="border-b border-slate-500 last:border-b-0">
-                  <td className="border-r border-slate-500 px-3 py-2.5">{index + 1}</td>
-                  <td className="border-r border-slate-500 px-3 py-2.5 font-medium">{item.product_name}</td>
-                  <td className="border-r border-slate-500 px-3 py-2.5 text-slate-700">{item.batch}</td>
-                  <td className="border-r border-slate-500 px-3 py-2.5 text-slate-700">{item.expiry}</td>
-                  <td className="border-r border-slate-500 px-3 py-2.5">{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
-                  <td className="px-3 py-2.5 text-right font-medium">{Number(item.mrp).toFixed(2)}</td>
-                </tr>
+        {/* Items Table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #64748b', fontSize: '10.5px' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#f8fafc' }}>
+              {['SN', 'Product Name', 'Batch No', 'Exp', 'Qty', 'Amount'].map((head, i) => (
+                <th key={head} style={{ border: '1px solid #64748b', padding: '4px 6px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 'bold', fontSize: '10.5px' }}>
+                  {head}
+                </th>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </tr>
+          </thead>
+          <tbody>
+            {totals.items.map((item, index) => (
+              <tr key={`${item.product_name}-${index}`} style={{ borderBottom: '0.5px solid #cbd5e1' }}>
+                <td style={{ borderRight: '1px solid #64748b', padding: '3px 6px' }}>{index + 1}</td>
+                <td style={{ borderRight: '1px solid #64748b', padding: '3px 6px', fontWeight: 500 }}>{item.product_name}</td>
+                <td style={{ borderRight: '1px solid #64748b', padding: '3px 6px' }}>{item.batch}</td>
+                <td style={{ borderRight: '1px solid #64748b', padding: '3px 6px' }}>{item.expiry}</td>
+                <td style={{ borderRight: '1px solid #64748b', padding: '3px 6px' }}>{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right' }}>{Number(item.mrp).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-        {/* Totals Box aligned to right side exactly like screenshot */}
-        <div className="max-w-[600px] mx-auto flex justify-end mt-4">
-          <div className="w-[300px] text-[13px] border-b border-t border-transparent">
-            {/* Subtotal */}
-            <div className="flex justify-between px-3 py-2 mb-1 border-b border-transparent">
-              <span className="font-semibold text-slate-700">Subtotal</span>
-              <span className="text-slate-900">{formatCurrency(totals.subtotal, 'INR')}</span>
+        {/* Totals */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+          <div style={{ width: '240px', fontSize: '10.5px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px' }}>
+              <span style={{ fontWeight: 600, color: '#475569' }}>Subtotal</span>
+              <span>{formatCurrency(totals.subtotal)}</span>
             </div>
-            
-            {/* Discount */}
-            <div className="flex justify-between px-3 py-2 font-bold text-red-600 bg-red-50 rounded-sm mb-1">
-              <span>Discount (Save)</span>
-              <span>- {formatCurrency(totals.discountAmount, 'INR')}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 6px', fontWeight: 'bold', color: '#dc2626', backgroundColor: '#fef2f2', borderRadius: '2px', fontSize: '26px' }}>
+              <span>Discount</span>
+              <span>- {formatCurrency(totals.discountAmount)}</span>
             </div>
-
-            {/* Grand Total */}
-            <div className="flex justify-between px-3 py-3 text-[14px] font-black border-t border-slate-200 mt-1">
-              <span className="text-black">Grand Total</span>
-              <span className="text-black">{formatCurrency(totals.grandTotal, 'INR')}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 6px', fontSize: '12px', fontWeight: 900, borderTop: '1px solid #e2e8f0', marginTop: '2px' }}>
+              <span>Grand Total</span>
+              <span>{formatCurrency(totals.grandTotal)}</span>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );

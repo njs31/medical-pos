@@ -5,6 +5,13 @@ import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, isExpiringWithin, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
+function getCategoryBadge(category) {
+  if (category === 'Medicine') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 mr-1" title="Medicine">M</span>;
+  if (category === 'General') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-blue-100 text-blue-700 mr-1" title="General">G</span>;
+  if (category === 'Surgical') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-green-100 text-green-700 mr-1" title="Surgical">S</span>;
+  return null;
+}
+
 function createEmptyBill(settings) {
   return {
     patient_name: '',
@@ -106,6 +113,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           cgst_percent: medicine.cgst_percent,
           amount: medicine.rate,
           stock_qty: medicine.stock_qty,
+          item_category: medicine.item_category || 'Medicine',
         },
       ],
     }));
@@ -263,7 +271,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     onClick={() => addItem(item)}
                   >
                     <div>
-                      <div className="font-bold text-slate-900">{item.name}</div>
+                      <div className="font-bold text-slate-900">{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</div>
                       <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>
                     </div>
                     <div className="text-slate-600">Exp: {item.expiry}</div>
@@ -291,7 +299,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               {totals.items.map((item, index) => (
                 <tr key={`${item.medicine_id}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-4">{index + 1}</td>
-                  <td className="px-4 py-4 font-semibold text-slate-900">{item.product_name}</td>
+                  <td className="px-4 py-4 font-semibold text-slate-900">{getCategoryBadge(item.item_category || 'Medicine')}{item.product_name}</td>
                   <td className="px-4 py-4">{item.batch}</td>
                   <td className={`px-4 py-4 ${isExpiringWithin(item.expiry, 60) ? 'font-semibold text-warning' : ''}`}>
                     {item.expiry}

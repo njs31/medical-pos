@@ -41,7 +41,7 @@ function formatStock(totalQty, tabletsPerSheet) {
   const parts = [];
   parts.push(`${sheets}S`);
   parts.push(`${loose}T`);
-  return { display: parts.join(' and '), sheets, loose, hasSheets: true };
+  return { display: parts.join(', '), sheets, loose, hasSheets: true };
 }
 
 export default function Inventory({ toast, initialFilter = 'all' }) {
