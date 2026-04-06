@@ -33,10 +33,10 @@ export function addMedicine(data) {
   const stmt = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name
     )
   `);
   const info = stmt.run(data);
@@ -58,7 +58,8 @@ export function updateMedicine(id, data) {
       cgst_percent = @cgst_percent,
       stock_qty = @stock_qty,
       reorder_level = @reorder_level,
-      tablets_per_sheet = @tablets_per_sheet
+      tablets_per_sheet = @tablets_per_sheet,
+      supplier_name = @supplier_name
     WHERE id = @id
   `).run({ ...data, id });
   return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(id);
@@ -77,10 +78,10 @@ export function importMedicines(rows) {
   const insert = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name
     )
   `);
   const tx = getDb().transaction((items) => items.forEach((item) => insert.run(item)));

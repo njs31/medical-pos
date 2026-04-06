@@ -91,6 +91,24 @@ function migrateDefaultShopSettings(database) {
   );
 }
 
+function seedSuppliers(database) {
+  const count = database.prepare('SELECT COUNT(*) as count FROM suppliers').get().count;
+  if (count > 0) return;
+
+  const insert = database.prepare('INSERT INTO suppliers (name, details) VALUES (?, ?)');
+  const suppliers = [
+    ['Ankur Pharmacy', 'TS/MDL/2019-45345'],
+    ['Sri Balaji Traders', 'TS/MDL/2023-104310'],
+    ['Sri Soumya Medicals', 'DL.20 & 21: TG/15/03/2015-8662, DL.20B & 21B: TG/15/03/2015-8664'],
+    ['Sree Venkateshwara Medisolutions Private Limited', 'TS/MDL/2023-104202'],
+    ['AK Medicals Private Limited', 'CIN: U47721TS2025PTC205896'],
+  ];
+
+  for (const [name, details] of suppliers) {
+    insert.run(name, details);
+  }
+}
+
 export function initDatabase() {
   if (db) return db;
 
@@ -117,6 +135,14 @@ export function initDatabase() {
       stock_qty INTEGER DEFAULT 0,
       reorder_level INTEGER DEFAULT 10,
       tablets_per_sheet INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      supplier_name TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      details TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -189,8 +215,14 @@ export function initDatabase() {
     db.exec(`ALTER TABLE medicines ADD COLUMN tablets_per_sheet INTEGER DEFAULT 0`);
   }
 
+  const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
+  if (!hasSupplierName) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN supplier_name TEXT`);
+  }
+
   seedMedicines(db);
   seedSettings(db);
+  seedSuppliers(db);
   migrateDefaultShopSettings(db);
   
   // Custom migration for DHARVI SREE POLY CLINIC

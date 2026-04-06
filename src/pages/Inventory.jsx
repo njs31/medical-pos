@@ -20,6 +20,7 @@ const initialForm = {
   stock_qty: '',
   tablets_per_sheet: 0,
   is_general: false,
+  supplier_name: '',
 };
 
 const initialGeneralForm = {
@@ -34,6 +35,7 @@ const initialGeneralForm = {
   cgst_percent: 0,
   stock_qty: '',
   is_general: true,
+  supplier_name: '',
 };
 
 /** Format stock_qty into sheets + loose display */
@@ -59,6 +61,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
   const [isGeneralItem, setIsGeneralItem] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
   const fileRef = useRef(null);
   const formRef = useRef(null);
 
@@ -97,6 +100,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
   async function load() {
     setMedicines(await window.api.medicines.getAll());
+    setSuppliers(await window.api.suppliers.getAll());
   }
 
   useEffect(() => {
@@ -179,6 +183,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         stock_qty: Number(form.stock_qty || 0),
         reorder_level: 0,
         is_general: isGeneralItem,
+        supplier_name: form.supplier_name || '',
       };
 
       const payload = isGeneralItem
@@ -304,11 +309,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           <Button variant="secondary" onClick={exportCsv}>
             <Download size={16} className="mr-2" /> Export
           </Button>
-          <Button onClick={openAddGeneralModal}>
-            <Plus size={16} className="mr-2" /> Add General
-          </Button>
           <Button onClick={openAddModal}>
-            <Plus size={16} className="mr-2" /> Add Medicine
+            <Plus size={16} className="mr-2" /> Add Stock
           </Button>
         </div>
       </div>
@@ -327,6 +329,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['mrp', 'MRP'],
                   ['stock_qty', 'Stock Qty'],
                   ['tablets_per_sheet', 'Tab/Sheet'],
+                  ['supplier_name', 'Supplier'],
                 ].map(([key, label]) => (
                   <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
                     {label}
@@ -363,6 +366,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <td className="px-4 py-3 text-center">
                     {Number(item.tablets_per_sheet) > 0 ? item.tablets_per_sheet : <span className="text-slate-300">—</span>}
                   </td>
+                  <td className="px-4 py-3 truncate max-w-[150px]" title={item.supplier_name}>
+                    {item.supplier_name?.[0] ? item.supplier_name : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, 1)}>
@@ -384,7 +390,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               })}
               {!filtered.length && (
                 <tr>
-                  <td colSpan="11" className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan="12" className="px-4 py-12 text-center text-slate-500">
                     No medicines found for the current filters.
                   </td>
                 </tr>
@@ -429,6 +435,19 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                 />
               ))}
+              <Input
+                as="select"
+                label="Supplier"
+                value={form.supplier_name || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
+              >
+                <option value="">Select Supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Input>
             </>
           ) : (
             <>
@@ -450,6 +469,19 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
                 />
               ))}
+              <Input
+                as="select"
+                label="Supplier"
+                value={form.supplier_name || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
+              >
+                <option value="">Select Supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Input>
               {Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
                 <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
                   <span className="font-semibold">Stock preview: </span>

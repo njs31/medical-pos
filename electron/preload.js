@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('api', {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (data) => ipcRenderer.invoke('settings:save', data),
   },
+  suppliers: {
+    getAll: () => ipcRenderer.invoke('suppliers:getAll'),
+  },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke('updater:check'),
     downloadUpdate: () => ipcRenderer.invoke('updater:download'),

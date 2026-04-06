@@ -26,6 +26,7 @@ import {
   updateMedicine,
 } from './database/medicines.js';
 import { getSettings, saveSettings } from './database/settings.js';
+import { getAllSuppliers } from './database/suppliers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -226,6 +227,7 @@ function parseCsv(content) {
       stock_qty: parseNumber(item.stock_qty || item.stock || item.current_stock_quantity),
       reorder_level: parseNumber(item.reorder_level, 10),
       tablets_per_sheet: parseNumber(item.tablets_per_sheet || item.tab_per_sheet, 0),
+      supplier_name: item.supplier_name || item.supplier || '',
     };
   });
 }
@@ -245,6 +247,7 @@ function toCsv(rows) {
     'stock_qty',
     'reorder_level',
     'tablets_per_sheet',
+    'supplier_name',
   ];
   const lines = [headers.join(',')];
   rows.forEach((row) => {
@@ -320,6 +323,8 @@ ipcMain.handle('reports:gst', async (_, month, year) => getGstReport(month, year
 
 ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
+
+ipcMain.handle('suppliers:getAll', async () => getAllSuppliers());
 
 ipcMain.handle('updater:check', async () => {
   try {
