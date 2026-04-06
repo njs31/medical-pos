@@ -19,22 +19,6 @@ const initialForm = {
   cgst_percent: 6,
   stock_qty: '',
   tablets_per_sheet: 0,
-  is_general: false,
-  supplier_name: '',
-};
-
-const initialGeneralForm = {
-  name: '',
-  pack: '',
-  hsn_code: '',
-  expiry: '',
-  mrp: '',
-  rate: '',
-  purchase_rate: '',
-  sgst_percent: 0,
-  cgst_percent: 0,
-  stock_qty: '',
-  is_general: true,
   supplier_name: '',
 };
 
@@ -60,7 +44,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
-  const [isGeneralItem, setIsGeneralItem] = useState(false);
+  const [itemCategory, setItemCategory] = useState('Medicine');
   const [suppliers, setSuppliers] = useState([]);
   const fileRef = useRef(null);
   const formRef = useRef(null);
@@ -141,16 +125,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     requireAuth(() => {
       setEditingId(null);
       setForm(initialForm);
-      setIsGeneralItem(false);
-      setModalOpen(true);
-    });
-  }
-
-  function openAddGeneralModal() {
-    requireAuth(() => {
-      setEditingId(null);
-      setForm(initialGeneralForm);
-      setIsGeneralItem(true);
+      setItemCategory('Medicine');
       setModalOpen(true);
     });
   }
@@ -158,8 +133,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   function openEditModal(item) {
     requireAuth(() => {
       setEditingId(item.id);
-      setForm({ ...item });
-      setIsGeneralItem(!!item.is_general);
+      setForm({ ...item, pack: item.pack || '' });
+      setItemCategory('Medicine');
       setModalOpen(true);
     });
   }
@@ -172,32 +147,24 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     }
 
     try {
-      const basePayload = {
+      const payload = {
         name: String(form.name || '').trim(),
         pack: String(form.pack || '').trim(),
         hsn_code: String(form.hsn_code || '').trim(),
+        batch: String(form.batch || '').trim(),
         expiry: String(form.expiry || '').trim(),
         mrp: Number(form.mrp || 0),
         rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
         purchase_rate: Number(form.purchase_rate || 0),
         stock_qty: Number(form.stock_qty || 0),
         reorder_level: 0,
-        is_general: isGeneralItem,
+        sgst_percent: itemCategory === 'Medicine' ? Number(form.sgst_percent || 0) : 0,
+        cgst_percent: itemCategory === 'Medicine' ? Number(form.cgst_percent || 0) : 0,
+        tablets_per_sheet: itemCategory === 'Medicine' ? Number(form.tablets_per_sheet || 0) : 0,
         supplier_name: form.supplier_name || '',
       };
 
-      const payload = isGeneralItem
-        ? basePayload
-        : {
-            ...basePayload,
-            batch: String(form.batch || '').trim(),
-            expiry: String(form.expiry || '').trim(),
-            sgst_percent: Number(form.sgst_percent || 0),
-            cgst_percent: Number(form.cgst_percent || 0),
-            tablets_per_sheet: Number(form.tablets_per_sheet || 0),
-          };
-
-      const itemType = isGeneralItem ? 'General item' : 'Medicine';
+      const itemType = itemCategory;
 
       if (editingId) {
         await window.api.medicines.update(editingId, payload);
@@ -209,7 +176,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
       setModalOpen(false);
       setForm(initialForm);
-      setIsGeneralItem(false);
+      setItemCategory('Medicine');
       await load();
     } catch (error) {
       toast(error?.message || 'Unable to save', 'error');
@@ -402,96 +369,100 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
       <Modal
         open={modalOpen}
-        title={editingId ? (isGeneralItem ? 'Edit General Item' : 'Edit Medicine') : (isGeneralItem ? 'Add General Item' : 'Add Medicine')}
-        onClose={() => { setModalOpen(false); setIsGeneralItem(false); }}
+        title={editingId ? `Edit ${itemCategory}` : `Add ${itemCategory}`}
+        onClose={() => { setModalOpen(false); }}
         footer={
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={() => { setModalOpen(false); setIsGeneralItem(false); }}>
+            <Button type="button" variant="secondary" onClick={() => { setModalOpen(false); }}>
               Cancel
             </Button>
             <Button type="button" onClick={submit}>
-              {editingId ? (isGeneralItem ? 'Update General Item' : 'Update Medicine') : (isGeneralItem ? 'Add General Item' : 'Add Medicine')}
+              {editingId ? `Update ${itemCategory}` : `Add ${itemCategory}`}
             </Button>
           </div>
         }
       >
         <form ref={formRef} id="medicine-form" className="grid gap-4 md:grid-cols-2" onSubmit={submit}>
-          {isGeneralItem ? (
-            <>
-              {[
-                ['name', 'Product Name *'],
-                ['mrp', 'MRP (₹) *'],
-                ['expiry', 'Expiry Date *'],
-                ['stock_qty', 'Stock Quantity *'],
-              ].map(([key, label]) => (
-                <Input
-                  key={key}
-                  label={label}
-                  type={['mrp', 'stock_qty'].includes(key) ? 'number' : 'text'}
-                  value={form[key]}
-                  required={['name', 'mrp', 'stock_qty'].includes(key)}
-                  min={['mrp', 'stock_qty'].includes(key) ? 0 : undefined}
-                  step={['mrp'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+          <div className="col-span-2 flex gap-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
+            {['Medicine', 'General', 'Surgical'].map((cat) => (
+              <label key={cat} className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer text-base">
+                <input
+                  type="radio"
+                  name="itemCategory"
+                  value={cat}
+                  checked={itemCategory === cat}
+                  onChange={(e) => setItemCategory(e.target.value)}
+                  className="accent-primary w-4 h-4"
                 />
-              ))}
+                {cat}
+              </label>
+            ))}
+          </div>
+
+          {(itemCategory === 'General' || itemCategory === 'Surgical') && (
+            <div className="md:col-span-2">
               <Input
-                as="select"
-                label="Supplier"
-                value={form.supplier_name || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
-              >
-                <option value="">Select Supplier</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </Input>
-            </>
-          ) : (
-            <>
-              {[
-                ['name', 'Product Name *'],
-                ['expiry', 'Expiry (MM/YY) *'],
-                ['mrp', 'MRP (₹) *'],
-                ['tablets_per_sheet', 'Tablets per Sheet (0 = N/A)'],
-                ['stock_qty', 'Current Stock Quantity (total tablets) *'],
-              ].map(([key, label]) => (
-                <Input
-                  key={key}
-                  label={label}
-                  type={['mrp', 'stock_qty', 'tablets_per_sheet'].includes(key) ? 'number' : 'text'}
-                  value={form[key]}
-                  required={['name', 'expiry', 'mrp', 'stock_qty'].includes(key)}
-                  min={['mrp', 'stock_qty', 'tablets_per_sheet'].includes(key) ? 0 : undefined}
-                  step={['mrp'].includes(key) ? '0.01' : ['stock_qty', 'tablets_per_sheet'].includes(key) ? '1' : undefined}
-                  onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
-                />
-              ))}
-              <Input
-                as="select"
-                label="Supplier"
-                value={form.supplier_name || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
-              >
-                <option value="">Select Supplier</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </Input>
-              {Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
-                <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
-                  <span className="font-semibold">Stock preview: </span>
-                  {formatStock(form.stock_qty, form.tablets_per_sheet).display}
-                  <span className="text-indigo-500 ml-1">({form.stock_qty} total tablets)</span>
-                </div>
-              )}
-            </>
+                label="Placeholder / Details"
+                placeholder="Enter details..."
+                type="text"
+                value={form.pack || ''}
+                onChange={(e) => setForm((prev) => ({ ...prev, pack: e.target.value }))}
+              />
+            </div>
+          )}
+
+          {[
+            ['name', 'Product Name *'],
+            ['expiry', 'Expiry Date *'],
+            ['mrp', 'MRP (₹) *'],
+            ['stock_qty', 'Stock Quantity *'],
+          ].map(([key, label]) => (
+            <Input
+              key={key}
+              label={label}
+              type={['mrp', 'stock_qty'].includes(key) ? 'number' : 'text'}
+              value={form[key]}
+              required={['name', 'mrp', 'stock_qty'].includes(key)}
+              min={['mrp', 'stock_qty'].includes(key) ? 0 : undefined}
+              step={['mrp'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
+              onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+            />
+          ))}
+
+          {itemCategory === 'Medicine' && (
+            <Input
+              label="Tablets per Sheet (0 = N/A)"
+              type="number"
+              value={form.tablets_per_sheet || ''}
+              min={0}
+              step={1}
+              onChange={(e) => setForm((prev) => ({ ...prev, tablets_per_sheet: e.target.value }))}
+            />
+          )}
+
+          <Input
+            as="select"
+            label="Supplier"
+            value={form.supplier_name || ''}
+            onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
+          >
+            <option value="">Select Supplier</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </Input>
+
+          {itemCategory === 'Medicine' && Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
+            <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
+              <span className="font-semibold">Stock preview: </span>
+              {formatStock(form.stock_qty, form.tablets_per_sheet).display}
+              <span className="text-indigo-500 ml-1">({form.stock_qty} total tablets)</span>
+            </div>
           )}
         </form>
+
       </Modal>
 
       {/* Login Modal */}
