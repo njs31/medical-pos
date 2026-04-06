@@ -280,7 +280,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Medicine', 'Pack', 'HSN', 'Batch', 'Exp', 'Qty', 'MRP', 'Amount', ''].map((heading) => (
+                {['#', 'Medicine', 'Batch', 'Exp', 'Qty', 'Rate', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -292,8 +292,6 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                 <tr key={`${item.medicine_id}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-4">{index + 1}</td>
                   <td className="px-4 py-4 font-semibold text-slate-900">{item.product_name}</td>
-                  <td className="px-4 py-4">{item.pack}</td>
-                  <td className="px-4 py-4">{item.hsn_code}</td>
                   <td className="px-4 py-4">{item.batch}</td>
                   <td className={`px-4 py-4 ${isExpiringWithin(item.expiry, 60) ? 'font-semibold text-warning' : ''}`}>
                     {item.expiry}
