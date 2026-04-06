@@ -39,8 +39,8 @@ function formatStock(totalQty, tabletsPerSheet) {
   const sheets = Math.floor(qty / perSheet);
   const loose = qty % perSheet;
   const parts = [];
-  if (sheets > 0) parts.push(`${sheets}S`);
-  if (loose > 0 || sheets === 0) parts.push(`${loose}T`);
+  parts.push(`${sheets}S`);
+  parts.push(`${loose}T`);
   return { display: parts.join(' and '), sheets, loose, hasSheets: true };
 }
 
@@ -161,7 +161,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
     try {
       const payload = {
-        name: String(form.name || '').trim(),
+        name: String(form.name || '').trim().toUpperCase(),
         pack: String(form.pack || '').trim(),
         hsn_code: '', // kept for db constraint
         batch: String(form.batch || '').trim(),
@@ -309,7 +309,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 {[
                   ['name', 'Product Name'],
                   ['rack_number', 'Rack #'],
-                  ['pack', 'Pack'],
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
                   ['mrp', 'MRP'],
@@ -330,10 +329,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-3 font-semibold text-slate-900 flex items-center">
                     {getCategoryBadge(item.item_category || 'Medicine')}
-                    {item.name}
+                    {item.name?.toUpperCase()}
                   </td>
                   <td className="px-4 py-3">{item.rack_number}</td>
-                  <td className="px-4 py-3">{item.pack}</td>
                   <td className="px-4 py-3">{item.batch}</td>
                   <td className={`px-4 py-3 ${isExpired(item.expiry) ? 'text-danger' : isExpiringWithin(item.expiry) ? 'text-warning' : ''}`}>
                     {item.expiry}
@@ -418,17 +416,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             ))}
           </div>
 
-          {(itemCategory === 'General' || itemCategory === 'Surgical') && (
-            <div className="md:col-span-2">
-              <Input
-                label="Placeholder / Details"
-                placeholder="Enter details..."
-                type="text"
-                value={form.pack || ''}
-                onChange={(e) => setForm((prev) => ({ ...prev, pack: e.target.value }))}
-              />
-            </div>
-          )}
+
 
           {[
             ['name', 'Product Name *'],
