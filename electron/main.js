@@ -26,7 +26,7 @@ import {
   updateMedicine,
 } from './database/medicines.js';
 import { getSettings, saveSettings } from './database/settings.js';
-import { getAllSuppliers } from './database/suppliers.js';
+import { getAllSuppliers, addSupplier, deleteSupplier } from './database/suppliers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -329,6 +329,8 @@ ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
 
 ipcMain.handle('suppliers:getAll', async () => getAllSuppliers());
+ipcMain.handle('suppliers:add', async (_, supplier) => addSupplier(supplier));
+ipcMain.handle('suppliers:delete', async (_, id) => deleteSupplier(id));
 
 ipcMain.handle('updater:check', async () => {
   try {

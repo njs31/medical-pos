@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 
@@ -21,6 +22,8 @@ const defaults = {
 
 export default function Settings({ toast }) {
   const [form, setForm] = useState(defaults);
+  const [suppliers, setSuppliers] = useState([]);
+  const [newSupplierName, setNewSupplierName] = useState('');
   const [updateStatus, setUpdateStatus] = useState({
     checking: false,
     available: null,
@@ -35,8 +38,14 @@ export default function Settings({ toast }) {
     setForm({ ...defaults, ...data });
   }
 
+  async function loadSuppliers() {
+    const list = await window.api.suppliers.getAll();
+    setSuppliers(list);
+  }
+
   useEffect(() => {
     load();
+    loadSuppliers();
 
     if (!window.api?.updater) return;
 
@@ -100,6 +109,21 @@ export default function Settings({ toast }) {
 
   async function installUpdate() {
     await window.api.updater.installUpdate();
+  }
+
+  async function addSupplier() {
+    if (!newSupplierName.trim()) return;
+    await window.api.suppliers.add({ name: newSupplierName.trim(), details: '' });
+    setNewSupplierName('');
+    toast('Supplier added successfully');
+    loadSuppliers();
+  }
+
+  async function deleteSupplier(id) {
+    if (!window.confirm('Are you sure you want to delete this supplier?')) return;
+    await window.api.suppliers.delete(id);
+    toast('Supplier deleted');
+    loadSuppliers();
   }
 
   return (
@@ -167,6 +191,41 @@ export default function Settings({ toast }) {
             />
             Show HSN on bill
           </label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-6 shadow-card">
+        <h2 className="mb-4 text-lg font-bold text-slate-900">Manage Suppliers</h2>
+        <div className="flex items-end gap-3 mb-4">
+          <div className="flex-1">
+            <Input 
+              label="New Supplier Name" 
+              value={newSupplierName} 
+              onChange={(e) => setNewSupplierName(e.target.value)} 
+              placeholder="e.g. Acme Pharma"
+            />
+          </div>
+          <Button type="button" onClick={addSupplier}>Add Supplier</Button>
+        </div>
+
+        <div className="mt-4 border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+          <table className="min-w-full text-sm">
+            <tbody className="divide-y divide-slate-100">
+              {suppliers.map(sup => (
+                <tr key={sup.id}>
+                  <td className="px-4 py-3 font-medium text-slate-800">{sup.name}</td>
+                  <td className="px-4 py-3 text-right">
+                    <button type="button" onClick={() => deleteSupplier(sup.id)} className="text-red-500 hover:text-red-700 bg-red-50 p-1.5 rounded">
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {suppliers.length === 0 && (
+                <tr><td className="px-4 py-4 text-center text-slate-500">No suppliers added yet.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 

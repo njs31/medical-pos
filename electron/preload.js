@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('api', {
   },
   suppliers: {
     getAll: () => ipcRenderer.invoke('suppliers:getAll'),
+    add: (data) => ipcRenderer.invoke('suppliers:add', data),
+    delete: (id) => ipcRenderer.invoke('suppliers:delete', id),
   },
   updater: {
     checkForUpdates: () => ipcRenderer.invoke('updater:check'),
