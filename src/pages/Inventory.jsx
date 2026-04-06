@@ -316,7 +316,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['rack_number', 'Rack #'],
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
-                  ['mrp', 'MRP'],
+                  ['mrp', 'Amount'],
                   ['stock_qty', 'Stock Qty'],
                   ['supplier_name', 'Supplier'],
                 ].map(([key, label]) => (
@@ -426,8 +426,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           {[
             ['name', 'Product Name *'],
             ['rack_number', 'Rack Number'],
+            ['batch', 'Batch No'],
             ['expiry', 'Expiry Date *'],
-            ['mrp', 'MRP (₹) *'],
+            ['mrp', 'Amount (₹) *'],
             ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets/Quantity) *' : 'Stock Quantity *'],
           ].map(([key, label]) => (
             <Input
