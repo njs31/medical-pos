@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LoginModal from '@/components/ui/LoginModal';
 import Modal from '@/components/ui/Modal';
-import { formatCurrency, isExpired, isExpiringWithin } from '@/utils/formatters';
+import { formatCurrency, isExpired, isExpiringWithin, normalizeExpiry, parseExpiry } from '@/utils/formatters';
 
 const initialForm = {
   name: '',
@@ -123,6 +123,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
 
     result.sort((a, b) => {
+      if (sortKey === 'expiry') {
+        const timeA = parseExpiry(a.expiry)?.getTime() || 0;
+        const timeB = parseExpiry(b.expiry)?.getTime() || 0;
+        return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+      }
       const first = a[sortKey] ?? '';
       const second = b[sortKey] ?? '';
       const comparison =
@@ -165,7 +170,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         pack: String(form.pack || '').trim(),
         hsn_code: '', // kept for db constraint
         batch: String(form.batch || '').trim(),
-        expiry: String(form.expiry || '').trim(),
+        expiry: normalizeExpiry(form.expiry),
         mrp: Number(form.mrp || 0),
         rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
         purchase_rate: Number(form.purchase_rate || 0),
@@ -423,7 +428,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             ['rack_number', 'Rack Number'],
             ['expiry', 'Expiry Date *'],
             ['mrp', 'MRP (₹) *'],
-            ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets) *' : 'Stock Quantity *'],
+            ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets/Quantity) *' : 'Stock Quantity *'],
           ].map(([key, label]) => (
             <Input
               key={key}

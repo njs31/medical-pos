@@ -196,8 +196,19 @@ function parseNumber(value, fallback = 0) {
     .replace(/[₹,\s]/g, '')
     .trim();
   if (!normalized) return fallback;
-  const parsed = Number(normalized);
+    const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeExpiryStr(expiry) {
+  const parts = String(expiry || '').split('/');
+  if (parts.length !== 2) return String(expiry || '').trim();
+  const m = parseInt(parts[0], 10);
+  const y = parseInt(parts[1], 10);
+  if (isNaN(m) || isNaN(y)) return String(expiry || '').trim();
+  const fm = String(m).padStart(2, '0');
+  const fy = String(y).length === 4 ? String(y).slice(-2) : String(y).padStart(2, '0');
+  return `${fm}/${fy}`;
 }
 
 function parseCsv(content) {
@@ -218,7 +229,7 @@ function parseCsv(content) {
       pack: item.pack || item.pack_size || '',
       hsn_code: item.hsn_code || item.hsn || '',
       batch: item.batch || item.batch_number || '',
-      expiry: item.expiry || item.exp_date || item.exp || '',
+      expiry: normalizeExpiryStr(item.expiry || item.exp_date || item.exp || ''),
       mrp: parseNumber(item.mrp),
       rate: parseNumber(item.rate || item.selling_rate),
       purchase_rate: parseNumber(item.purchase_rate, parseNumber(item.rate || item.selling_rate)),

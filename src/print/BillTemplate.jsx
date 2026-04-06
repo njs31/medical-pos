@@ -34,7 +34,7 @@ export default function BillTemplate({ bill }) {
         <div>Patient Phone: <span className="font-semibold">{bill.patient_phone || '-'}</span></div>
         <div>Date: <span className="font-semibold">{formatDate(bill.date)}</span></div>
         <div>Doctor Name: <span className="font-semibold">{bill.doctor_name || settings.default_doctor || '-'}</span></div>
-        <div></div>
+        <div>Time: <span className="font-semibold">{new Date(bill.created_at || new Date()).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</span></div>
       </div>
 
       <table className="mt-4 w-full border-collapse border border-slate-800 text-[12px]">

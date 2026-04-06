@@ -23,6 +23,17 @@ export function todayIso() {
   return new Date(now.getTime() - tz).toISOString().slice(0, 10);
 }
 
+export function normalizeExpiry(expiry) {
+  const parts = String(expiry || '').split('/');
+  if (parts.length !== 2) return String(expiry || '').trim();
+  const m = parseInt(parts[0], 10);
+  const y = parseInt(parts[1], 10);
+  if (isNaN(m) || isNaN(y)) return String(expiry || '').trim();
+  const formattedMonth = String(m).padStart(2, '0');
+  const formattedYear = String(y).length === 4 ? String(y).slice(-2) : String(y).padStart(2, '0');
+  return `${formattedMonth}/${formattedYear}`;
+}
+
 export function parseExpiry(expiry) {
   const [month, year] = String(expiry || '').split('/').map(Number);
   if (!month || !year) return null;
