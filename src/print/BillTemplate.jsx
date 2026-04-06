@@ -18,8 +18,6 @@ export default function BillTemplate({ bill }) {
       product_name: item.product_name,
       qty: item.qty,
       rate: item.rate,
-      sgst_percent: item.sgst_percent,
-      cgst_percent: item.cgst_percent,
     })) || [],
     bill.discount_percent || 0,
   );

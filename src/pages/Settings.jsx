@@ -133,7 +133,6 @@ export default function Settings({ toast }) {
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="Shop Name *" required value={form.shop_name} onChange={(e) => setForm((prev) => ({ ...prev, shop_name: e.target.value }))} />
           <Input label="Phone *" required value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
-          <Input label="GSTIN *" required value={form.gstin} onChange={(e) => setForm((prev) => ({ ...prev, gstin: e.target.value }))} />
           <div className="space-y-2">
             <Input label="Shop Logo Path" value={form.logo_path} onChange={(e) => setForm((prev) => ({ ...prev, logo_path: e.target.value }))} />
             <input

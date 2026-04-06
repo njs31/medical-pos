@@ -109,8 +109,6 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           qty: 1,
           mrp: medicine.mrp,
           rate: medicine.mrp,
-          sgst_percent: medicine.sgst_percent,
-          cgst_percent: medicine.cgst_percent,
           amount: medicine.rate,
           stock_qty: medicine.stock_qty,
           item_category: medicine.item_category || 'Medicine',
@@ -152,8 +150,6 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
       subtotal: totals.subtotal,
       discount_percent: Number(bill.discount_percent || 0),
       discount_amount: totals.discountAmount,
-      sgst_total: totals.sgstTotal,
-      cgst_total: totals.cgstTotal,
       grand_total: totals.grandTotal,
     };
 
@@ -378,6 +374,40 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[11px] font-medium text-slate-500">Discount Amount</span>
                 <span className="font-bold text-slate-700">{formatCurrency(totals.discountAmount)}</span>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                <div className="flex gap-1.5">
+                  {[1, 3, 5, 7, 9, 11].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setBill((prev) => ({ ...prev, discount_percent: pct }))}
+                      className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition active:scale-95 ${
+                        Number(bill.discount_percent) === pct
+                          ? 'border-blue-500 bg-blue-500 text-white shadow-md'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300'
+                      }`}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1.5">
+                  {[2, 4, 6, 8, 10, 12].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setBill((prev) => ({ ...prev, discount_percent: pct }))}
+                      className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition active:scale-95 ${
+                        Number(bill.discount_percent) === pct
+                          ? 'border-blue-500 bg-blue-500 text-white shadow-md'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300'
+                      }`}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

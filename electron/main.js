@@ -10,7 +10,6 @@ import {
   getBillById,
   getBills,
   getDashboardSummary,
-  getGstReport,
   getSalesSummary,
   getStockReport,
   previewNextInvoiceNo,
@@ -233,8 +232,8 @@ function parseCsv(content) {
       mrp: parseNumber(item.mrp),
       rate: parseNumber(item.rate || item.selling_rate),
       purchase_rate: parseNumber(item.purchase_rate, parseNumber(item.rate || item.selling_rate)),
-      sgst_percent: parseNumber(item.sgst_percent || item.sgst, 6),
-      cgst_percent: parseNumber(item.cgst_percent || item.cgst, 6),
+      sgst_percent: 0,
+      cgst_percent: 0,
       stock_qty: parseNumber(item.stock_qty || item.stock || item.current_stock_quantity),
       reorder_level: parseNumber(item.reorder_level, 10),
       tablets_per_sheet: parseNumber(item.tablets_per_sheet || item.tab_per_sheet, 0),
@@ -255,8 +254,6 @@ function toCsv(rows) {
     'mrp',
     'rate',
     'purchase_rate',
-    'sgst_percent',
-    'cgst_percent',
     'stock_qty',
     'reorder_level',
     'tablets_per_sheet',
@@ -334,7 +331,6 @@ ipcMain.handle('dashboard:summary', async () => getDashboardSummary());
 
 ipcMain.handle('reports:sales', async (_, from, to) => getSalesSummary(from, to));
 ipcMain.handle('reports:stock', async () => getStockReport());
-ipcMain.handle('reports:gst', async (_, month, year) => getGstReport(month, year));
 
 ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
