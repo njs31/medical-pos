@@ -84,7 +84,7 @@ export default function BillTemplate({ bill }) {
               <span>Subtotal</span>
               <span>{formatCurrency(totals.subtotal)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 4px', fontWeight: 'bold', color: '#dc2626', fontSize: '22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 4px', fontWeight: 'bold', color: '#dc2626', fontSize: '15px' }}>
               <span>Discount</span>
               <span>- {formatCurrency(totals.discountAmount)}</span>
             </div>
