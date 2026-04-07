@@ -49,10 +49,10 @@ export function createBill(billData) {
   const insertItem = database.prepare(`
     INSERT INTO bill_items (
       bill_id, medicine_id, product_name, pack, hsn_code, batch, expiry,
-      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount
+      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet
     ) VALUES (
       @bill_id, @medicine_id, @product_name, @pack, @hsn_code, @batch, @expiry,
-      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount
+      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet
     )
   `);
 
@@ -72,6 +72,7 @@ export function createBill(billData) {
         sgst_percent: 0,
         cgst_percent: 0,
         discount: item.discount || 0,
+        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
         ...item,
         bill_id: billInfo.lastInsertRowid,
         medicine_id: item.medicine_id || null,

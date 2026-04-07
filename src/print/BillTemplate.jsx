@@ -7,6 +7,9 @@ function formatBillQty(qty, tps) {
   if (perSheet <= 0) return String(quantity);
   const sheets = Math.floor(quantity / perSheet);
   const loose = quantity % perSheet;
+
+  if (sheets === 0) return `${loose}T`;
+  if (loose === 0) return `${sheets}S`;
   return `${sheets}S, ${loose}T`;
 }
 

@@ -219,6 +219,9 @@ export function initDatabase() {
   if (!billItemsCols.some((col) => col.name === 'discount')) {
     db.exec(`ALTER TABLE bill_items ADD COLUMN discount REAL DEFAULT 0`);
   }
+  if (!billItemsCols.some((col) => col.name === 'tablets_per_sheet')) {
+    db.exec(`ALTER TABLE bill_items ADD COLUMN tablets_per_sheet INTEGER DEFAULT 0`);
+  }
 
   const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
   if (!hasSupplierName) {
