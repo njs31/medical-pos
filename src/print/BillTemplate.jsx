@@ -56,7 +56,7 @@ export default function BillTemplate({ bill }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #000' }}>
-              {['SN', 'Medicine', 'Batch No', 'Exp', 'Qty', 'MRP', 'Amount'].map((head, i) => (
+              {['SN', 'Medicine', 'Batch No', 'Exp', 'Qty', 'MRP'].map((head, i) => (
                 <th key={head} style={{ padding: '3px 6px', textAlign: i >= 5 ? 'right' : 'left', fontWeight: 'bold' }}>
                   {head}
                 </th>
@@ -71,8 +71,7 @@ export default function BillTemplate({ bill }) {
                 <td style={{ padding: '3px 6px', width: '70px' }}>{item.batch}</td>
                 <td style={{ padding: '3px 6px', width: '50px' }}>{item.expiry}</td>
                 <td style={{ padding: '3px 6px', width: '60px' }}>{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
-                <td style={{ padding: '3px 6px', textAlign: 'right', width: '60px' }}>{formatCurrency(item.mrp)}</td>
-                <td style={{ padding: '3px 6px', textAlign: 'right', width: '70px' }}>{formatCurrency(item.base_amount)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right', width: '80px' }}>{formatCurrency(item.mrp)}</td>
               </tr>
             ))}
           </tbody>

@@ -178,7 +178,8 @@ export function initDatabase() {
       rate REAL,
       sgst_percent REAL,
       cgst_percent REAL,
-      amount REAL
+      amount REAL,
+      discount REAL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS shop_settings (
@@ -212,6 +213,11 @@ export function initDatabase() {
   const hasTabletsPerSheet = medColumns.some((column) => column.name === 'tablets_per_sheet');
   if (!hasTabletsPerSheet) {
     db.exec(`ALTER TABLE medicines ADD COLUMN tablets_per_sheet INTEGER DEFAULT 0`);
+  }
+
+  const billItemsCols = db.prepare(`PRAGMA table_info(bill_items)`).all();
+  if (!billItemsCols.some((col) => col.name === 'discount')) {
+    db.exec(`ALTER TABLE bill_items ADD COLUMN discount REAL DEFAULT 0`);
   }
 
   const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
