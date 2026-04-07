@@ -39,6 +39,7 @@ export default function QuickBill({ toast, shopSettings }) {
           amount: 0,
           stock_qty: 99999,
           item_category: 'General',
+          discount: 0,
         },
       ],
     }));
@@ -147,7 +148,7 @@ export default function QuickBill({ toast, shopSettings }) {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100/80 backdrop-blur-md text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Product Name', 'Batch', 'Exp', 'Qty', 'Amount', ''].map((heading) => (
+                {['#', 'Product Name', 'Batch', 'Exp', 'Qty', 'Amount', 'Disc%', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">{heading}</th>
                 ))}
               </tr>
@@ -181,13 +182,21 @@ export default function QuickBill({ toast, shopSettings }) {
                     />
                   </td>
                   <td className="px-4 py-4">
-                    <input
-                      className="w-20 rounded-xl border border-slate-200 px-3 py-2 font-bold outline-none focus:border-blue-500 transition"
-                      type="number"
-                      min="1"
-                      value={item.qty}
-                      onChange={(e) => updateItem(index, 'qty', Number(e.target.value))}
-                    />
+                      <input
+                        className="w-20 rounded-xl border border-slate-200 px-3 py-2 font-bold outline-none focus:border-blue-500 transition"
+                        type="number"
+                        min="1"
+                        value={item.qty}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          let v = e.target.value;
+                          if (/^0\d/.test(v)) {
+                            v = v.replace(/^0+(?=\d)/, '');
+                            e.target.value = v;
+                          }
+                          updateItem(index, 'qty', Number(v));
+                        }}
+                      />
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-1">
@@ -196,12 +205,39 @@ export default function QuickBill({ toast, shopSettings }) {
                         className="w-24 rounded-xl border border-slate-200 px-3 py-2 font-bold text-blue-600 outline-none focus:border-blue-500 transition"
                         type="number"
                         value={item.mrp}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
-                          const val = Number(e.target.value);
+                          let v = e.target.value;
+                          if (/^0\d/.test(v)) {
+                            v = v.replace(/^0+(?=\d)/, '');
+                            e.target.value = v;
+                          }
+                          const val = Number(v);
                           updateItem(index, 'mrp', val);
                           updateItem(index, 'rate', val);
                         }}
                       />
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-1">
+                      <input
+                        className="w-16 rounded-xl border border-slate-200 px-2 py-2 font-bold text-slate-700 transition focus:border-blue-500 outline-none"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={item.discount ?? 0}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          let v = e.target.value;
+                          if (/^0\d/.test(v)) {
+                            v = v.replace(/^0+(?=\d)/, '');
+                            e.target.value = v;
+                          }
+                          updateItem(index, 'discount', v === '' ? 0 : Number(v));
+                        }}
+                      />
+                      <span className="text-[10px] font-bold text-slate-400">%</span>
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -247,7 +283,15 @@ export default function QuickBill({ toast, shopSettings }) {
                         type="number"
                         className="w-16 rounded-lg border border-slate-200 px-2 py-1 text-right font-bold"
                         value={bill.discount_percent}
-                        onChange={(e) => setBill(p => ({ ...p, discount_percent: Number(e.target.value) }))}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          let v = e.target.value;
+                          if (/^0\d/.test(v)) {
+                            v = v.replace(/^0+(?=\d)/, '');
+                            e.target.value = v;
+                          }
+                          setBill(p => ({ ...p, discount_percent: v === '' ? 0 : Number(v) }));
+                        }}
                       />
                    </div>
                    <div className="mt-2 border-t border-slate-200 pt-2 flex items-center justify-between">
@@ -273,7 +317,7 @@ export default function QuickBill({ toast, shopSettings }) {
                   onClick={() => saveQuickBill('draft', false)}
                   className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                 >
-                  Save Draft
+                  Save
                 </button>
                 <button
                   onClick={clearBill}

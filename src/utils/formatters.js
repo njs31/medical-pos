@@ -46,7 +46,7 @@ export function isExpired(expiry) {
   return date < new Date();
 }
 
-export function isExpiringWithin(expiry, days = 60) {
+export function isExpiringWithin(expiry, days = 90) {
   const date = parseExpiry(expiry);
   if (!date) return false;
   const now = new Date();

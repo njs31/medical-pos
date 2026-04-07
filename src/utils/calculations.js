@@ -14,25 +14,36 @@ export function calculateLineItem(item) {
 
 export function calculateBillTotals(items = [], discountPercent = 0) {
   const rawDiscount = Number(discountPercent || 0);
-  const discountPercent_capped = Math.max(0, Math.min(100, rawDiscount));
-  const subtotal = round2(items.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.rate || 0), 0));
-  const discountAmount = round2(subtotal * (discountPercent_capped / 100));
-  const grandTotal = round2(subtotal - discountAmount);
+  const globalDiscountPercent_capped = Math.max(0, Math.min(100, rawDiscount));
 
   const computedItems = items.map((item) => {
-    const values = calculateLineItem(item);
+    const qty = Number(item.qty || 0);
+    const rate = Number(item.rate || 0);
+    const itemDisc = Number(item.discount || 0);
+    const base_amount = round2(qty * rate);
+    const itemDiscountAmount = round2(base_amount * (itemDisc / 100));
+    const amount = round2(base_amount - itemDiscountAmount);
+
     return {
       ...item,
-      amount: values.baseAmount,
-      base_amount: values.baseAmount,
+      discount: itemDisc,
+      base_amount,
+      amount,
     };
   });
+
+  const subtotal = round2(computedItems.reduce((sum, item) => sum + item.base_amount, 0));
+  const subtotalAfterItemDiscounts = round2(computedItems.reduce((sum, item) => sum + item.amount, 0));
+  const globalDiscountAmount = round2(subtotalAfterItemDiscounts * (globalDiscountPercent_capped / 100));
+  
+  const totalDiscountAmount = round2((subtotal - subtotalAfterItemDiscounts) + globalDiscountAmount);
+  const grandTotal = round2(subtotalAfterItemDiscounts - globalDiscountAmount);
 
   return {
     items: computedItems,
     subtotal,
-    discountPercent: discountPercent_capped,
-    discountAmount,
+    discountPercent: globalDiscountPercent_capped,
+    discountAmount: totalDiscountAmount,
     grandTotal,
   };
 }

@@ -165,7 +165,7 @@ export function getDashboardSummary() {
     SELECT COUNT(*) as count
     FROM medicines
     WHERE substr(expiry, 4, 2) || substr(expiry, 1, 2) >= strftime('%y%m', 'now')
-      AND substr(expiry, 4, 2) || substr(expiry, 1, 2) <= strftime('%y%m', date('now', '+60 days'))
+      AND substr(expiry, 4, 2) || substr(expiry, 1, 2) <= strftime('%y%m', date('now', '+90 days'))
   `).get();
 
   const expiredCount = getDb().prepare(`

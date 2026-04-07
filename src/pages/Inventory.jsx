@@ -115,7 +115,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         String(item.batch || '').toLowerCase().includes(term);
       if (!match) return false;
       if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
-      if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 60);
+      if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 90);
       if (filter === 'expired') return isExpired(item.expiry);
       return true;
     });
