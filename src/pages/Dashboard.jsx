@@ -1,4 +1,8 @@
+import { useState } from 'react';
+import { Eye } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import Modal from '@/components/ui/Modal';
+import BillTemplate from '@/print/BillTemplate';
 import { formatCurrency, formatDate } from '@/utils/formatters';
 
 function StatCard({ label, value, subvalue, tone = 'blue', onClick }) {
@@ -21,6 +25,13 @@ function StatCard({ label, value, subvalue, tone = 'blue', onClick }) {
 }
 
 export default function Dashboard({ summary, onNavigate, onReprint }) {
+  const [selectedBill, setSelectedBill] = useState(null);
+
+  async function viewBill(id) {
+    const bill = await window.api.bills.getById(id);
+    setSelectedBill(bill);
+  }
+
   return (
     <div className="space-y-6">
       {summary.expiredItems > 0 && (
@@ -44,7 +55,13 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
           tone="amber"
           onClick={() => onNavigate('inventory', { filter: 'low-stock' })}
         />
-        <StatCard label="Expiring Soon Items" value={summary.expiringSoonItems} tone="red" />
+        <StatCard
+          label="Expiring Soon Items"
+          value={summary.expiringSoonItems}
+          subvalue="Click to filter inventory"
+          tone="red"
+          onClick={() => onNavigate('inventory', { filter: 'expiring-soon' })}
+        />
       </div>
 
       <section className="rounded-2xl bg-white p-6 shadow-card">
@@ -62,7 +79,7 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
                 <th className="px-4 py-3">Patient</th>
                 <th className="px-4 py-3">Amount</th>
                 <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -73,9 +90,14 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
                   <td className="px-4 py-3 text-slate-700">{formatCurrency(bill.grand_total)}</td>
                   <td className="px-4 py-3 text-slate-700">{formatDate(bill.date)}</td>
                   <td className="px-4 py-3">
-                    <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onReprint(bill.id)}>
-                      Reprint
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => viewBill(bill.id)}>
+                        <Eye size={14} className="mr-1" /> View
+                      </Button>
+                      <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => onReprint(bill.id)}>
+                        Reprint
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -90,6 +112,15 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
           </table>
         </div>
       </section>
+
+      <Modal
+        open={Boolean(selectedBill)}
+        title={selectedBill ? `Bill Preview - ${selectedBill.invoice_no}` : 'Bill Preview'}
+        onClose={() => setSelectedBill(null)}
+        size="max-w-5xl"
+      >
+        {selectedBill && <BillTemplate bill={selectedBill} />}
+      </Modal>
     </div>
   );
 }

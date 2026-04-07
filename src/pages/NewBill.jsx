@@ -389,65 +389,8 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             </div>
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Discount %</span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={bill.discount_percent}
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => {
-                    let v = e.target.value;
-                    if (/^0\d/.test(v)) {
-                      v = v.replace(/^0+(?=\d)/, '');
-                      e.target.value = v;
-                    }
-                    setBill((prev) => ({ ...prev, discount_percent: v }));
-                  }}
-                  className="w-20 rounded-lg border border-slate-200 bg-white px-2 py-1 text-right font-bold text-slate-700 outline-none focus:border-blue-500 transition"
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-slate-500">Discount Amount</span>
-                <span className="font-bold text-slate-700">{formatCurrency(totals.discountAmount)}</span>
-              </div>
-              <div className="mt-3 space-y-1.5">
-                <div className="flex gap-1.5">
-                  {[1, 3, 5, 7, 9, 11].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => setBill((prev) => ({ ...prev, discount_percent: pct }))}
-                      className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition active:scale-95 ${
-                        Number(bill.discount_percent) === pct
-                          ? 'border-blue-500 bg-blue-500 text-white shadow-md'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-1.5">
-                  {[2, 4, 6, 8, 10, 12].map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => setBill((prev) => ({ ...prev, discount_percent: pct }))}
-                      className={`flex-1 rounded-lg border py-1.5 text-xs font-bold transition active:scale-95 ${
-                        Number(bill.discount_percent) === pct
-                          ? 'border-blue-500 bg-blue-500 text-white shadow-md'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:border-blue-300'
-                      }`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Discount</div>
+              <div className="mt-1 text-2xl font-extrabold text-red-600">- {formatCurrency(totals.discountAmount)}</div>
             </div>
           </div>
 

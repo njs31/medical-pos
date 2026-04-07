@@ -56,8 +56,8 @@ export default function BillTemplate({ bill }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #000' }}>
-              {['SN', 'Medicine', 'Batch No', 'Exp', 'Qty', 'MRP'].map((head, i) => (
-                <th key={head} style={{ padding: '3px 6px', textAlign: i >= 5 ? 'right' : 'left', fontWeight: 'bold' }}>
+              {['SN', 'Medicine', 'Batch No', 'Exp', 'MRP', 'Qty', 'Amount'].map((head, i) => (
+                <th key={head} style={{ padding: '3px 6px', textAlign: i >= 4 ? 'right' : 'left', fontWeight: 'bold' }}>
                   {head}
                 </th>
               ))}
@@ -70,8 +70,9 @@ export default function BillTemplate({ bill }) {
                 <td style={{ padding: '3px 6px', fontWeight: 500 }}>{item.product_name}</td>
                 <td style={{ padding: '3px 6px', width: '70px' }}>{item.batch}</td>
                 <td style={{ padding: '3px 6px', width: '50px' }}>{item.expiry}</td>
-                <td style={{ padding: '3px 6px', width: '60px' }}>{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
-                <td style={{ padding: '3px 6px', textAlign: 'right', width: '80px' }}>{formatCurrency(item.mrp)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right', width: '70px' }}>{formatCurrency(item.mrp)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right', width: '50px' }}>{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right', width: '80px' }}>{formatCurrency(item.base_amount)}</td>
               </tr>
             ))}
           </tbody>
