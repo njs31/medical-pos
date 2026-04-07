@@ -106,6 +106,13 @@ function seedSuppliers(database) {
   }
 }
 
+export function closeDatabase() {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
 export function initDatabase() {
   if (db) return db;
 

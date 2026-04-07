@@ -14,7 +14,7 @@ import {
   getStockReport,
   previewNextInvoiceNo,
 } from './database/bills.js';
-import { initDatabase } from './database/db.js';
+import { initDatabase, closeDatabase } from './database/db.js';
 import {
   addMedicine,
   adjustMedicineStock,
@@ -341,18 +341,42 @@ ipcMain.handle('system:exportDatabase', async () => {
   try {
     const dbPath = path.join(app.getPath('userData'), 'pharmacy-pos.sqlite');
     const { filePath, canceled } = await dialog.showSaveDialog({
-      title: 'Export Database',
+      title: 'Export Database Backup',
       defaultPath: `pharmacy-backup-${new Date().toISOString().slice(0, 10)}.db`,
       filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }],
     });
 
     if (canceled || !filePath) return { success: false };
-
-    // Copy the database file to the new location
     await fs.copyFile(dbPath, filePath);
     return { success: true };
   } catch (error) {
     console.error('Database export failed:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('system:importDatabase', async () => {
+  try {
+    const { filePaths, canceled } = await dialog.showOpenDialog({
+      title: 'Select Database Backup To Restore',
+      properties: ['openFile'],
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }],
+    });
+
+    if (canceled || filePaths.length === 0) return { success: false };
+    
+    const dbPath = path.join(app.getPath('userData'), 'pharmacy-pos.sqlite');
+    closeDatabase(); // Important to release file handle
+
+    await fs.copyFile(filePaths[0], dbPath);
+    
+    // Relaunch the app to pick up new database
+    app.relaunch();
+    app.exit(0);
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Database import failed:', error);
     return { success: false, error: error.message };
   }
 });

@@ -21,7 +21,7 @@ export default {
     oneClick: true,
     perMachine: true,
     allowToChangeInstallationDirectory: false,
-    deleteAppDataOnUninstall: true,
+    deleteAppDataOnUninstall: false,
   },
   publish: {
     provider: 'github',

@@ -219,12 +219,16 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
   }
 
-  function importCsv(file) {
+  async function importDatabase() {
     requireAuth(async () => {
-      const content = await file.text();
-      await window.api.medicines.importCsv(content);
-      toast('Inventory imported successfully');
-      load();
+      if (!window.confirm('WARNING: This will replace your ENTIRE database (medicines, bills, settings) with the backup file. The app will restart automatically. Continue?')) return;
+      
+      const result = await window.api.medicines.importDatabase();
+      if (result.success) {
+        toast('Database restored successfully. Application is restarting...');
+      } else if (result.error) {
+        toast(`Restore failed: ${result.error}`, 'error');
+      }
     });
   }
 
@@ -289,18 +293,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             </button>
           )}
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])}
-          />
-          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-            <Upload size={16} className="mr-2" /> Bulk Import
+          <Button variant="secondary" onClick={importDatabase}>
+            <Upload size={16} className="mr-2" /> Restore Backup
           </Button>
           <Button variant="secondary" onClick={handleExportDatabase}>
-            <Download size={16} className="mr-2" /> Export
+            <Download size={16} className="mr-2" /> Export Backup
           </Button>
           <Button onClick={openAddModal}>
             <Plus size={16} className="mr-2" /> Add Stock
