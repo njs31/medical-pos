@@ -148,7 +148,7 @@ export default function QuickBill({ toast, shopSettings }) {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100/80 backdrop-blur-md text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Product Name', 'Batch', 'Exp', 'Qty', 'Amount', 'Disc%', ''].map((heading) => (
+                {['#', 'Product Name', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">{heading}</th>
                 ))}
               </tr>
@@ -239,6 +239,9 @@ export default function QuickBill({ toast, shopSettings }) {
                       />
                       <span className="text-[10px] font-bold text-slate-400">%</span>
                     </div>
+                  </td>
+                  <td className="px-4 py-4 font-bold text-slate-900">
+                    {formatCurrency(totals.items[index]?.amount || 0)}
                   </td>
                   <td className="px-4 py-4">
                     <button

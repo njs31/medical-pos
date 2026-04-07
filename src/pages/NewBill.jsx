@@ -285,7 +285,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['#', 'Medicine', 'Batch', 'Exp', 'Qty', 'Amount', 'Disc%', ''].map((heading) => (
+                {['#', 'Medicine', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -329,7 +329,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4 font-semibold">{formatCurrency(item.amount)}</td>
+                  <td className="px-4 py-4 font-semibold text-slate-700">{formatCurrency(item.mrp)}</td>
                   <td className="px-4 py-4">
                     <div className="flex items-center">
                       <input
@@ -352,6 +352,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                       <span className="ml-1 text-xs font-bold text-slate-400">%</span>
                     </div>
                   </td>
+                  <td className="px-4 py-4 font-bold text-slate-900">{formatCurrency(item.amount)}</td>
                   <td className="px-4 py-4">
                     <button
                       className="rounded-full bg-red-50 px-3 py-1 text-lg text-danger transition hover:bg-red-100"
