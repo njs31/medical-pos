@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Package2,
   Settings as SettingsIcon,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import Button from './ui/Button';
@@ -16,6 +17,8 @@ const titles = {
   'bill-history': 'Bill History',
   reports: 'Reports',
   settings: 'Settings',
+  'quick-bill': '⚡ Quick Bill',
+  'quick-history': 'Quick History',
 };
 
 const navItems = [
@@ -24,6 +27,8 @@ const navItems = [
   { key: 'inventory', label: 'Inventory', icon: Package2 },
   { key: 'bill-history', label: 'Bill History', icon: FileClock },
   { key: 'reports', label: 'Reports', icon: ClipboardList },
+  { key: 'quick-bill', label: 'Quick Bill', icon: FilePlus2 },
+  { key: 'quick-history', label: 'Quick History', icon: History },
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 

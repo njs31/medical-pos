@@ -9,6 +9,8 @@ import Inventory from '@/pages/Inventory';
 import NewBill from '@/pages/NewBill';
 import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
+import QuickBill from '@/pages/QuickBill';
+import QuickBillHistory from '@/pages/QuickBillHistory';
 
 function useHashRoute() {
   const getRoute = () => window.location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -61,7 +63,18 @@ export default function App() {
 
   useEffect(() => {
     if (!printBillId) return;
-    window.api.bills.getById(Number(printBillId)).then(setPrintBill);
+    if (printBillId === 'raw') {
+      const checkData = () => {
+        if (window.__PRINT_DATA__) {
+          setPrintBill(window.__PRINT_DATA__);
+        } else {
+          setTimeout(checkData, 100);
+        }
+      };
+      checkData();
+    } else {
+      window.api.bills.getById(Number(printBillId)).then(setPrintBill);
+    }
   }, [printBillId]);
 
   function navigate(page, state = {}) {
@@ -95,6 +108,12 @@ export default function App() {
     }
     if (route === 'settings') {
       return <Settings toast={toast} />;
+    }
+    if (route === 'quick-bill') {
+      return <QuickBill toast={toast} shopSettings={shopSettings} />;
+    }
+    if (route === 'quick-history') {
+      return <QuickBillHistory toast={toast} />;
     }
     return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
   }, [dashboardSummary, pageState.filter, route, persistentBill, shopSettings]);

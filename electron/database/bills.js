@@ -60,6 +60,8 @@ export function createBill(billData) {
 
   const tx = database.transaction(() => {
     const billInfo = insertBill.run({
+      sgst_total: 0,
+      cgst_total: 0,
       ...billData,
       invoice_no: invoiceNo,
       total_items: billData.items.length,
@@ -67,19 +69,11 @@ export function createBill(billData) {
 
     for (const item of billData.items) {
       insertItem.run({
+        sgst_percent: 0,
+        cgst_percent: 0,
+        ...item,
         bill_id: billInfo.lastInsertRowid,
         medicine_id: item.medicine_id || null,
-        product_name: item.product_name,
-        pack: item.pack,
-        hsn_code: item.hsn_code,
-        batch: item.batch,
-        expiry: item.expiry,
-        qty: item.qty,
-        mrp: item.mrp,
-        rate: item.rate,
-        sgst_percent: item.sgst_percent,
-        cgst_percent: item.cgst_percent,
-        amount: item.amount,
       });
       if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
     }

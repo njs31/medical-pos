@@ -61,11 +61,19 @@ function createMainWindow() {
   }
 }
 
-async function printBill(billId) {
-  const bill = getBillById(billId);
+async function printBill(billIdOrData) {
+  let bill;
+  let isRaw = false;
+  if (typeof billIdOrData === 'object' && billIdOrData !== null) {
+    bill = billIdOrData;
+    isRaw = true;
+  } else {
+    bill = getBillById(billIdOrData);
+  }
+
   const targetUrl = isDev
-    ? `http://localhost:5173/#/print/${billId}`
-    : `file://${getRendererIndexPath()}#/print/${billId}`;
+    ? `http://localhost:5173/#/print/${isRaw ? 'raw' : billIdOrData}`
+    : `file://${getRendererIndexPath()}#/print/${isRaw ? 'raw' : billIdOrData}`;
 
   const printWindow = new BrowserWindow({
     width: 900,
@@ -80,6 +88,14 @@ async function printBill(billId) {
   });
 
   await printWindow.loadURL(targetUrl);
+
+  if (isRaw) {
+    const settings = getSettings();
+    await printWindow.webContents.executeJavaScript(`
+      window.__PRINT_DATA__ = ${JSON.stringify({ ...bill, settings })};
+    `);
+  }
+
   await printWindow.webContents.executeJavaScript(`
     new Promise((resolve) => {
       if (document.fonts?.ready) {
@@ -326,6 +342,7 @@ ipcMain.handle('bills:getAll', async (_, filters) => getBills(filters));
 ipcMain.handle('bills:getById', async (_, id) => getBillById(id));
 ipcMain.handle('bills:delete', async (_, id) => deleteBill(id));
 ipcMain.handle('bills:print', async (_, id) => printBill(id));
+ipcMain.handle('bills:printRaw', async (_, billData) => printBill(billData));
 ipcMain.handle('bills:getNextInvoiceNo', async () => previewNextInvoiceNo());
 ipcMain.handle('dashboard:summary', async () => getDashboardSummary());
 

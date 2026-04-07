@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
     getById: (id) => ipcRenderer.invoke('bills:getById', id),
     delete: (id) => ipcRenderer.invoke('bills:delete', id),
     print: (id) => ipcRenderer.invoke('bills:print', id),
+    printRaw: (billData) => ipcRenderer.invoke('bills:printRaw', billData),
     getNextInvoiceNo: () => ipcRenderer.invoke('bills:getNextInvoiceNo'),
     getDashboardSummary: () => ipcRenderer.invoke('dashboard:summary'),
   },
