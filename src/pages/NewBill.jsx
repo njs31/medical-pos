@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { calculateBillTotals } from '@/utils/calculations';
@@ -10,6 +10,73 @@ function getCategoryBadge(category) {
   if (category === 'General') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-blue-100 text-blue-700 mr-1" title="General">G</span>;
   if (category === 'Surgical') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-green-100 text-green-700 mr-1" title="Surgical">S</span>;
   return null;
+}
+
+function SheetTabletInput({ qty, tabletsPerSheet, error, onChange }) {
+  const tps = Number(tabletsPerSheet) || 1;
+  const totalQty = Number(qty) || 0;
+  const sheets = Math.floor(totalQty / tps);
+  const tablets = totalQty % tps;
+
+  const sRef = useRef(null);
+  const tRef = useRef(null);
+
+  function handleSheetChange(e) {
+    let v = e.target.value;
+    if (/^0\d/.test(v)) v = v.replace(/^0+(?=\d)/, '');
+    const s = Number(v) || 0;
+    onChange(s * tps + tablets);
+  }
+
+  function handleTabletChange(e) {
+    let v = e.target.value;
+    if (/^0\d/.test(v)) v = v.replace(/^0+(?=\d)/, '');
+    const t = Number(v) || 0;
+    onChange(sheets * tps + t);
+  }
+
+  function handleSheetKeyDown(e) {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      tRef.current?.focus();
+      tRef.current?.select();
+    }
+  }
+
+  const borderClass = error ? 'border-red-500 bg-red-50 text-red-700 shake-animation' : 'border-slate-300';
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex items-center">
+        <input
+          ref={sRef}
+          className={`w-12 rounded-lg border px-2 py-2 text-center font-bold transition-all outline-none focus:border-blue-500 ${borderClass}`}
+          type="number"
+          min="0"
+          step="1"
+          value={sheets}
+          onFocus={(e) => e.target.select()}
+          onChange={handleSheetChange}
+          onKeyDown={handleSheetKeyDown}
+        />
+        <span className="ml-0.5 text-[10px] font-bold text-slate-400">S</span>
+      </div>
+      <div className="flex items-center">
+        <input
+          ref={tRef}
+          className={`w-12 rounded-lg border px-2 py-2 text-center font-bold transition-all outline-none focus:border-blue-500 ${borderClass}`}
+          type="number"
+          min="0"
+          max={tps - 1}
+          step="1"
+          value={tablets}
+          onFocus={(e) => e.target.select()}
+          onChange={handleTabletChange}
+        />
+        <span className="ml-0.5 text-[10px] font-bold text-slate-400">T</span>
+      </div>
+    </div>
+  );
 }
 
 function createEmptyBill(settings) {
@@ -106,13 +173,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           hsn_code: medicine.hsn_code,
           batch: medicine.batch,
           expiry: medicine.expiry,
-          qty: 1,
+          qty: Number(medicine.tablets_per_sheet) > 0 ? Number(medicine.tablets_per_sheet) : 1,
           mrp: medicine.mrp,
-          rate: medicine.mrp,
+          rate: Number(medicine.tablets_per_sheet) > 0
+            ? Number(medicine.mrp) / Number(medicine.tablets_per_sheet)
+            : Number(medicine.mrp),
           amount: medicine.rate,
           stock_qty: medicine.stock_qty,
           item_category: medicine.item_category || 'Medicine',
           discount: 0,
+          tablets_per_sheet: medicine.tablets_per_sheet || 0,
         },
       ],
     }));
@@ -303,24 +373,33 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   </td>
                   <td className="px-4 py-4">
                     <div className="relative group">
-                      <input
-                        className={`w-20 rounded-xl border px-3 py-2 font-semibold transition-all ${
-                          errors[`item_${index}_qty`] ? 'border-red-500 bg-red-50 text-red-700 shake-animation' : 'border-slate-300'
-                        }`}
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={item.qty}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => {
-                          let v = e.target.value;
-                          if (/^0\d/.test(v)) {
-                            v = v.replace(/^0+(?=\d)/, '');
-                            e.target.value = v;
-                          }
-                          updateItem(index, 'qty', Number(v));
-                        }}
-                      />
+                      {Number(item.tablets_per_sheet) > 0 ? (
+                        <SheetTabletInput
+                          qty={item.qty}
+                          tabletsPerSheet={item.tablets_per_sheet}
+                          error={errors[`item_${index}_qty`]}
+                          onChange={(totalQty) => updateItem(index, 'qty', totalQty)}
+                        />
+                      ) : (
+                        <input
+                          className={`w-20 rounded-xl border px-3 py-2 font-semibold transition-all ${
+                            errors[`item_${index}_qty`] ? 'border-red-500 bg-red-50 text-red-700 shake-animation' : 'border-slate-300'
+                          }`}
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.qty}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            let v = e.target.value;
+                            if (/^0\d/.test(v)) {
+                              v = v.replace(/^0+(?=\d)/, '');
+                              e.target.value = v;
+                            }
+                            updateItem(index, 'qty', Number(v));
+                          }}
+                        />
+                      )}
                       {errors[`item_${index}_qty`] && (
                         <div className="absolute left-0 top-full z-10 mt-1 w-[240px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
                           {errors[`item_${index}_qty`]}
