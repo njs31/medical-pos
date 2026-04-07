@@ -469,7 +469,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => saveBill('draft', false)}
+                    onClick={() => saveBill('saved', false)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                   >
                     Save

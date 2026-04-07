@@ -110,47 +110,58 @@ async function printBill(billIdOrData) {
   const copies = Number(settings.copies || 1);
   const printers = await printWindow.webContents.getPrintersAsync();
 
-  if (!printers.length) {
-    const pdfBuffer = await printWindow.webContents.printToPDF({
-      printBackground: true,
-      pageSize: settings.paper_size || 'A4',
-      landscape: false,
-    });
-
-    const { canceled, filePath } = await dialog.showSaveDialog({
-      title: 'Save Invoice PDF',
-      defaultPath: path.join(app.getPath('documents'), `${bill?.invoice_no || `invoice-${billId}`}.pdf`),
-      filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
-    });
-
-    if (!canceled && filePath) {
-      await fs.writeFile(filePath, pdfBuffer);
-      printWindow.close();
-      return { success: true, mode: 'pdf', filePath };
+  let targetDeviceName;
+  if (printers && printers.length > 0) {
+    const canon = printers.find(p => String(p.name).toLowerCase().includes('canon') || String(p.name).toLowerCase().includes('lbp'));
+    if (canon) {
+      targetDeviceName = canon.name;
+    } else {
+      // Find any physical printer to avoid OS "Print to PDF" download prompts
+      const physical = printers.find(p => 
+        !String(p.name).toLowerCase().includes('pdf') && 
+        !String(p.name).toLowerCase().includes('xps') &&
+        !String(p.name).toLowerCase().includes('onenote')
+      );
+      if (physical) targetDeviceName = physical.name;
     }
-
-    printWindow.close();
-    return { success: false, mode: 'pdf-cancelled' };
   }
 
-  for (let i = 0; i < copies; i += 1) {
-    await new Promise((resolve, reject) => {
-      printWindow.webContents.print(
-        {
-          silent: false,
+  // If no physical printer is found, abort printing gracefully to prevent Save As PDF dialogs
+  if (!printers.length || !targetDeviceName) {
+    printWindow.close();
+    return { success: true, mode: 'saved-only-no-printer' };
+  }
+
+  try {
+    for (let i = 0; i < copies; i += 1) {
+      await new Promise((resolve, reject) => {
+        const printOpts = {
+          silent: true,
           printBackground: true,
           margins: { marginType: 'custom', top: 0, bottom: 0, left: 0, right: 0 },
           pageSize: settings.paper_size === '80mm' ? { width: 315000, height: 1100000 } : (settings.paper_size || 'A4'),
-        },
-        (success, errorType) => {
-          if (!success) reject(new Error(errorType || 'Printing failed'));
-          else resolve();
-        },
-      );
-    });
+        };
+        
+        if (targetDeviceName) {
+          printOpts.deviceName = targetDeviceName;
+        }
+
+        printWindow.webContents.print(
+          printOpts,
+          (success, errorType) => {
+            if (!success) reject(new Error(errorType || 'Printing failed'));
+            else resolve();
+          },
+        );
+      });
+    }
+  } catch (error) {
+    log.error('Hardware print error:', error);
+    if (!printWindow.isDestroyed()) printWindow.close();
+    return { success: false, mode: 'print-error', message: error.message };
   }
 
-  printWindow.close();
+  if (!printWindow.isDestroyed()) printWindow.close();
   return { success: true, mode: 'print' };
 }
 

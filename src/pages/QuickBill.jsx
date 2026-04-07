@@ -314,7 +314,7 @@ export default function QuickBill({ toast, shopSettings }) {
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => saveQuickBill('draft', false)}
+                  onClick={() => saveQuickBill('saved', false)}
                   className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                 >
                   Save
