@@ -24,7 +24,6 @@ contextBridge.exposeInMainWorld('api', {
   reports: {
     getSalesSummary: (from, to) => ipcRenderer.invoke('reports:sales', from, to),
     getStockReport: () => ipcRenderer.invoke('reports:stock'),
-    getGSTReport: (month, year) => ipcRenderer.invoke('reports:gst', month, year),
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

@@ -41,12 +41,14 @@ export default function BillHistory({ toast }) {
   async function handlePrint(id) {
     try {
       const result = await window.api.bills.print(id);
-      if (result?.mode === 'pdf') {
-        toast(`Invoice #${id} saved as PDF`);
-      } else if (result?.mode === 'pdf-cancelled') {
-        toast('PDF save cancelled', 'error');
+      if (result?.mode === 'saved-only-no-printer') {
+        toast('No printer found. Bill saved but not printed.', 'error');
+      } else if (result?.mode === 'print-error') {
+        toast(`Print failed: ${result.message || 'Unknown error'}`, 'error');
+      } else if (result?.mode === 'print') {
+        toast('Bill sent to printer successfully');
       } else {
-        toast(`Print dialog opened for invoice #${id}`);
+        toast('Print completed');
       }
     } catch (error) {
       toast(error?.message || 'Unable to print bill', 'error');

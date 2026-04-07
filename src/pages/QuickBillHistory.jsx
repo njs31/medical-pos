@@ -41,8 +41,14 @@ export default function QuickBillHistory({ toast }) {
 
   async function handlePrint(id) {
     try {
-      await window.api.bills.print(id);
-      toast(`Print dialog opened for Quick Bill #${id}`);
+      const result = await window.api.bills.print(id);
+      if (result?.mode === 'saved-only-no-printer') {
+        toast('No printer found. Bill saved but not printed.', 'error');
+      } else if (result?.mode === 'print-error') {
+        toast(`Print failed: ${result.message || 'Unknown error'}`, 'error');
+      } else {
+        toast('Bill sent to printer successfully');
+      }
     } catch (error) {
       toast(error?.message || 'Unable to print', 'error');
     }

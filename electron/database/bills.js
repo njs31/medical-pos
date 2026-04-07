@@ -270,30 +270,3 @@ export function getStockReport() {
   };
 }
 
-export function getGstReport(month, year) {
-  const mm = String(month).padStart(2, '0');
-  const yy = String(year).slice(-2);
-
-  const monthlySummary = getDb().prepare(`
-    SELECT
-      strftime('%Y-%m', date) as month,
-      COALESCE(SUM(sgst_total), 0) as sgst_collected,
-      COALESCE(SUM(cgst_total), 0) as cgst_collected,
-      COALESCE(SUM(sgst_total + cgst_total), 0) as total_gst
-    FROM bills
-    WHERE strftime('%m', date) = @month AND strftime('%Y', date) = @fullYear
-    GROUP BY strftime('%Y-%m', date)
-  `).all({ month: mm, fullYear: String(year) });
-
-  const taxable = getDb().prepare(`
-    SELECT COALESCE(SUM(subtotal - discount_amount), 0) as taxable_amount
-    FROM bills
-    WHERE strftime('%m', date) = @month AND strftime('%Y', date) = @fullYear
-  `).get({ month: mm, fullYear: String(year) });
-
-  return {
-    month: `${mm}/${yy}`,
-    taxableAmount: taxable.taxable_amount,
-    monthlySummary,
-  };
-}
