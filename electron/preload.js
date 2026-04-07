@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('api', {
     delete: (id) => ipcRenderer.invoke('medicines:delete', id),
     adjustStock: (id, qty) => ipcRenderer.invoke('medicines:adjustStock', id, qty),
     importCsv: (content) => ipcRenderer.invoke('medicines:importCsv', content),
-    exportCsv: () => ipcRenderer.invoke('medicines:exportCsv'),
+    exportDatabase: () => ipcRenderer.invoke('system:exportDatabase'),
   },
   bills: {
     create: (billData) => ipcRenderer.invoke('bills:create', billData),

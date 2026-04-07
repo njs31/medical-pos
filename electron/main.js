@@ -337,15 +337,24 @@ ipcMain.handle('medicines:update', async (_, id, data) => updateMedicine(id, dat
 ipcMain.handle('medicines:delete', async (_, id) => deleteMedicine(id));
 ipcMain.handle('medicines:adjustStock', async (_, id, qty) => adjustMedicineStock(id, qty));
 ipcMain.handle('medicines:importCsv', async (_, content) => importMedicines(parseCsv(content)));
-ipcMain.handle('medicines:exportCsv', async () => {
-  const csv = toCsv(getAllMedicines());
-  const { filePath, canceled } = await dialog.showSaveDialog({
-    defaultPath: 'inventory-export.csv',
-  });
-  if (!canceled && filePath) {
-    await import('node:fs/promises').then((fs) => fs.writeFile(filePath, csv, 'utf-8'));
+ipcMain.handle('system:exportDatabase', async () => {
+  try {
+    const dbPath = path.join(app.getPath('userData'), 'pharmacy-pos.sqlite');
+    const { filePath, canceled } = await dialog.showSaveDialog({
+      title: 'Export Database',
+      defaultPath: `pharmacy-backup-${new Date().toISOString().slice(0, 10)}.db`,
+      filters: [{ name: 'SQLite Database', extensions: ['db', 'sqlite'] }],
+    });
+
+    if (canceled || !filePath) return { success: false };
+
+    // Copy the database file to the new location
+    await fs.copyFile(dbPath, filePath);
+    return { success: true };
+  } catch (error) {
+    console.error('Database export failed:', error);
+    return { success: false, error: error.message };
   }
-  return { success: !canceled, csv };
 });
 
 ipcMain.handle('bills:create', async (_, billData) => createBill(billData));

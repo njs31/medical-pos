@@ -228,10 +228,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
   }
 
-  function exportCsv() {
+  function handleExportDatabase() {
     requireAuth(async () => {
-      await window.api.medicines.exportCsv();
-      toast('Inventory export generated');
+      const result = await window.api.medicines.exportDatabase();
+      if (result.success) {
+        toast('Database backup exported successfully');
+      } else if (result.error) {
+        toast(`Export failed: ${result.error}`, 'error');
+      }
     });
   }
 
@@ -295,7 +299,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             <Upload size={16} className="mr-2" /> Bulk Import
           </Button>
-          <Button variant="secondary" onClick={exportCsv}>
+          <Button variant="secondary" onClick={handleExportDatabase}>
             <Download size={16} className="mr-2" /> Export
           </Button>
           <Button onClick={openAddModal}>
