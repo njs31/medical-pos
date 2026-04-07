@@ -86,7 +86,7 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
               {summary.recentBills?.map((bill, index) => (
                 <tr key={bill.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-3 font-semibold text-slate-900">{bill.invoice_no}</td>
-                  <td className="px-4 py-3 text-slate-700">{bill.patient_name || 'Walk-in'}</td>
+                  <td className="px-4 py-3 text-slate-700">{bill.patient_name || '-'}</td>
                   <td className="px-4 py-3 text-slate-700">{formatCurrency(bill.grand_total)}</td>
                   <td className="px-4 py-3 text-slate-700">{formatDate(bill.date)}</td>
                   <td className="px-4 py-3">

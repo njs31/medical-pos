@@ -93,7 +93,7 @@ export default function BillHistory({ toast }) {
                   onClick={() => openBill(bill.id)}
                 >
                   <td className="px-4 py-3 font-semibold text-slate-900">{bill.invoice_no}</td>
-                  <td className="px-4 py-3">{bill.patient_name || 'Walk-in'}</td>
+                  <td className="px-4 py-3">{bill.patient_name || '-'}</td>
                   <td className="px-4 py-3">{bill.doctor_name || '-'}</td>
                   <td className="px-4 py-3">{formatDate(bill.date)}</td>
                   <td className="px-4 py-3">{bill.total_items}</td>
