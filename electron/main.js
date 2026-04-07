@@ -105,58 +105,29 @@ async function printBill(billIdOrData) {
       }
     });
   `);
-
   const settings = getSettings();
-  const copies = Number(settings.copies || 1);
-  const printers = await printWindow.webContents.getPrintersAsync();
-
-  let targetDeviceName;
-  if (printers && printers.length > 0) {
-    const canon = printers.find(p => String(p.name).toLowerCase().includes('canon') || String(p.name).toLowerCase().includes('lbp'));
-    if (canon) {
-      targetDeviceName = canon.name;
-    } else {
-      // Find any physical printer to avoid OS "Print to PDF" download prompts
-      const physical = printers.find(p => 
-        !String(p.name).toLowerCase().includes('pdf') && 
-        !String(p.name).toLowerCase().includes('xps') &&
-        !String(p.name).toLowerCase().includes('onenote')
-      );
-      if (physical) targetDeviceName = physical.name;
-    }
-  }
-
-  // If no physical printer is found, abort printing gracefully to prevent Save As PDF dialogs
-  if (!printers.length || !targetDeviceName) {
-    printWindow.close();
-    return { success: true, mode: 'saved-only-no-printer' };
-  }
-
+  
   try {
-    for (let i = 0; i < copies; i += 1) {
-      await new Promise((resolve, reject) => {
-        const printOpts = {
-          silent: true,
-          printBackground: true,
-          margins: { marginType: 'custom', top: 0, bottom: 0, left: 0, right: 0 },
-          pageSize: settings.paper_size === '80mm' ? { width: 315000, height: 1100000 } : (settings.paper_size || 'A4'),
-        };
-        
-        if (targetDeviceName) {
-          printOpts.deviceName = targetDeviceName;
-        }
+    const printOpts = {
+      silent: false, // Show list of printers
+      printBackground: true,
+      color: false,
+      pageSize: settings.paper_size || 'A4',
+    };
 
-        printWindow.webContents.print(
-          printOpts,
-          (success, errorType) => {
-            if (!success) reject(new Error(errorType || 'Printing failed'));
-            else resolve();
-          },
-        );
+    await new Promise((resolve, reject) => {
+      printWindow.webContents.print(printOpts, (success, errorType) => {
+        if (success) resolve();
+        else {
+          // If user cancels, it might return success=false. 
+          // We can't always distinguish cancel from error, 
+          // but we'll treat it as a graceful exit if no errorType.
+          if (!errorType) resolve(); 
+          else reject(new Error(errorType));
+        }
       });
-    }
+    });
   } catch (error) {
-    log.error('Hardware print error:', error);
     if (!printWindow.isDestroyed()) printWindow.close();
     return { success: false, mode: 'print-error', message: error.message };
   }

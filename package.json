@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.10",
-    "better-sqlite3": "^11.8.1",
+    "better-sqlite3": "^11.10.0",
     "clsx": "^2.1.1",
     "electron-log": "^5.4.1",
     "lucide-react": "^0.511.0",
