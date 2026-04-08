@@ -79,6 +79,7 @@ async function printBill(billIdOrData) {
     width: 900,
     height: 1200,
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: getPreloadPath(),
       contextIsolation: true,
@@ -105,27 +106,48 @@ async function printBill(billIdOrData) {
       }
     });
   `);
-  const settings = getSettings();
-  
-  try {
-    const printOpts = {
-      silent: false, // Show list of printers
-      printBackground: true,
-      color: false,
-      pageSize: settings.paper_size || 'A4',
-    };
 
+  try {
     await new Promise((resolve, reject) => {
-      printWindow.webContents.print(printOpts, (success, errorType) => {
-        if (success) resolve();
-        else {
-          // If user cancels, it might return success=false. 
-          // We can't always distinguish cancel from error, 
-          // but we'll treat it as a graceful exit if no errorType.
-          if (!errorType) resolve(); 
-          else reject(new Error(errorType));
-        }
-      });
+      let settled = false;
+
+      const cleanup = () => {
+        printWindow.webContents.removeListener('did-finish-load', handleLoadError);
+        printWindow.webContents.removeListener('render-process-gone', handleRenderGone);
+        printWindow.removeListener('closed', handleClosed);
+      };
+
+      const finish = (callback) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback();
+      };
+
+      const handleClosed = () => finish(resolve);
+      const handleLoadError = () => {};
+      const handleRenderGone = () => finish(() => reject(new Error('Print window closed unexpectedly')));
+
+      printWindow.on('closed', handleClosed);
+      printWindow.webContents.on('render-process-gone', handleRenderGone);
+
+      printWindow.show();
+      printWindow.focus();
+
+      printWindow.webContents.executeJavaScript(`
+        new Promise((innerResolve) => {
+          const done = () => {
+            window.removeEventListener('afterprint', done);
+            setTimeout(() => {
+              window.close();
+              innerResolve(true);
+            }, 150);
+          };
+
+          window.addEventListener('afterprint', done, { once: true });
+          setTimeout(() => window.print(), 100);
+        });
+      `).catch((error) => finish(() => reject(error)));
     });
   } catch (error) {
     if (!printWindow.isDestroyed()) printWindow.close();
