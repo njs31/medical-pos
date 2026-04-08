@@ -76,10 +76,12 @@ export default function BillTemplate({ bill }) {
               <span>Subtotal</span>
               <span>{formatCurrency(totals.subtotal)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 4px', fontWeight: 'bold', color: '#dc2626', fontSize: '15px' }}>
-              <span>Discount</span>
-              <span>- {formatCurrency(totals.discountAmount)}</span>
-            </div>
+            {Number(totals.discountAmount) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 4px', fontWeight: 'bold', color: '#dc2626', fontSize: '15px' }}>
+                <span>Discount</span>
+                <span>- {formatCurrency(totals.discountAmount)}</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 4px', fontWeight: 'bold', borderTop: '1px solid #000', marginTop: '2px' }}>
               <span>Grand Total</span>
               <span>{formatCurrency(totals.grandTotal)}</span>

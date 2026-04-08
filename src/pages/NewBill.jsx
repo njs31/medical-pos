@@ -338,7 +338,12 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     onClick={() => addItem(item)}
                   >
                     <div>
-                      <div className="font-bold text-slate-900">{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</div>
+                      <div className="flex items-center gap-2 font-bold text-slate-900">
+                        <span>{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                          {item.product_type || 'Generic'}
+                        </span>
+                      </div>
                       <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>
                     </div>
                     <div className="text-slate-600">Exp: {item.expiry}</div>
