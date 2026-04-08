@@ -34,6 +34,12 @@ function getProductTypeShortLabel(type) {
   return String(type || '').toLowerCase() === 'ethical' ? 'E' : 'G';
 }
 
+function getLowStockThreshold(stockQty) {
+  const qty = Number(stockQty) || 0;
+  if (qty <= 0) return 0;
+  return Math.max(1, Math.ceil(qty * 0.2));
+}
+
 /** Format stock_qty into sheets + loose display */
 function formatStock(totalQty, tabletsPerSheet) {
   const qty = Number(totalQty) || 0;
@@ -178,7 +184,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
         purchase_rate: Number(form.purchase_rate || 0),
         stock_qty: Number(form.stock_qty || 0),
-        reorder_level: 0,
+        reorder_level: getLowStockThreshold(form.stock_qty),
         sgst_percent: 0,
         cgst_percent: 0,
         tablets_per_sheet: itemCategory === 'Medicine' ? Number(form.tablets_per_sheet || 0) : 0,
@@ -445,6 +451,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               required={['name', 'mrp', 'stock_qty'].includes(key)}
               min={['mrp', 'stock_qty'].includes(key) ? 0 : undefined}
               step={['mrp'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
+              onFocus={key === 'mrp' ? (e) => e.target.select() : undefined}
               onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
             />
           ))}

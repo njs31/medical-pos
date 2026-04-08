@@ -348,7 +348,7 @@ export default function QuickBill({ toast, shopSettings }) {
 
         <div className="mt-8 min-h-[300px] overflow-auto rounded-3xl border border-slate-100">
           <table className="min-w-full text-sm">
-            <thead className="sticky top-0 bg-slate-50/50 text-left text-[11px] font-black uppercase tracking-widest text-slate-400 backdrop-blur-md">
+            <thead className="sticky top-0 bg-slate-50/50 text-left text-base font-black uppercase tracking-widest text-slate-600 backdrop-blur-md">
               <tr>
                 <th className="px-4 py-4">#</th>
                 <th className="px-4 py-4">Medicine</th>
@@ -400,6 +400,7 @@ export default function QuickBill({ toast, shopSettings }) {
                         className="w-20 bg-transparent outline-none ml-1"
                         type="number"
                         value={item.mrp}
+                        onFocus={(e) => e.target.select()}
                         onChange={(e) => {
                           const val = Number(e.target.value);
                           const tps = Number(item.tablets_per_sheet) || 0;

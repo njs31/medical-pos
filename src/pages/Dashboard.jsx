@@ -39,22 +39,10 @@ export default function Dashboard({ summary, onNavigate, onReprint }) {
           Expired medicines detected. Review inventory immediately.
         </div>
       )}
-      {summary.lowStockItems > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-          Some medicines are below reorder level. Click the low stock card to inspect them.
-        </div>
-      )}
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         <StatCard label="Today's Sales" value={formatCurrency(summary.todaysSales)} tone="blue" />
         <StatCard label="Bills Generated Today" value={summary.billsGeneratedToday} tone="green" />
-        <StatCard
-          label="Low Stock Items"
-          value={summary.lowStockItems}
-          subvalue="Click to filter inventory"
-          tone="amber"
-          onClick={() => onNavigate('inventory', { filter: 'low-stock' })}
-        />
         <StatCard
           label="Expiring Soon Items"
           value={summary.expiringSoonItems}

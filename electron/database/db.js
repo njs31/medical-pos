@@ -255,6 +255,13 @@ export function initDatabase() {
     db.exec(`ALTER TABLE medicines ADD COLUMN product_type TEXT DEFAULT 'Generic'`);
   }
   db.exec(`UPDATE medicines SET product_type = 'Generic' WHERE product_type IS NULL OR TRIM(product_type) = ''`);
+  db.exec(`
+    UPDATE medicines
+    SET reorder_level = CASE
+      WHEN COALESCE(stock_qty, 0) <= 0 THEN 0
+      ELSE CAST((stock_qty * 20 + 99) / 100 AS INTEGER)
+    END
+  `);
 
   if (isFirstRun) {
     seedMedicines(db);

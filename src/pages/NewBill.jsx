@@ -365,7 +365,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
 
         <div className="min-h-[260px] flex-1 overflow-auto rounded-2xl border border-slate-200">
           <table className="min-w-full text-sm">
-            <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="sticky top-0 bg-slate-100 text-left text-base font-black uppercase tracking-wide text-slate-700">
               <tr>
                 {['#', 'Medicine', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">

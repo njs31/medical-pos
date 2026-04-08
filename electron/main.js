@@ -245,15 +245,36 @@ function parseNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getLowStockThreshold(stockQty) {
+  const qty = parseNumber(stockQty, 0);
+  if (qty <= 0) return 0;
+  return Math.max(1, Math.ceil(qty * 0.2));
+}
+
 function normalizeExpiryStr(expiry) {
-  const parts = String(expiry || '').split('/');
-  if (parts.length !== 2) return String(expiry || '').trim();
-  const m = parseInt(parts[0], 10);
-  const y = parseInt(parts[1], 10);
-  if (isNaN(m) || isNaN(y)) return String(expiry || '').trim();
-  const fm = String(m).padStart(2, '0');
-  const fy = String(y).length === 4 ? String(y).slice(-2) : String(y).padStart(2, '0');
-  return `${fm}/${fy}`;
+  const raw = String(expiry || '').trim();
+  if (!raw || raw === '-  -') return '';
+
+  const slashParts = raw.split('/');
+  if (slashParts.length === 2) {
+    const m = parseInt(slashParts[0], 10);
+    const y = parseInt(slashParts[1], 10);
+    if (isNaN(m) || isNaN(y)) return raw;
+    const fm = String(m).padStart(2, '0');
+    const fy = String(y).length === 4 ? String(y).slice(-2) : String(y).padStart(2, '0');
+    return `${fm}/${fy}`;
+  }
+
+  const dashParts = raw.split('-');
+  if (dashParts.length === 3) {
+    const [, month, year] = dashParts;
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    if (isNaN(m) || isNaN(y)) return raw;
+    return `${String(m).padStart(2, '0')}/${String(y).slice(-2)}`;
+  }
+
+  return raw;
 }
 
 function parseCsv(content) {
@@ -269,6 +290,8 @@ function parseCsv(content) {
       item[header] = String(values[index] ?? '').trim();
     });
 
+    const stockQty = parseNumber(item.stock_qty || item.stock || item.current_stock_quantity);
+
     return {
       name: item.name || item.product_name || item.product || '',
       pack: item.pack || item.pack_size || '',
@@ -280,8 +303,8 @@ function parseCsv(content) {
       purchase_rate: parseNumber(item.purchase_rate, parseNumber(item.rate || item.selling_rate)),
       sgst_percent: 0,
       cgst_percent: 0,
-      stock_qty: parseNumber(item.stock_qty || item.stock || item.current_stock_quantity),
-      reorder_level: parseNumber(item.reorder_level, 10),
+      stock_qty: stockQty,
+      reorder_level: parseNumber(item.reorder_level, getLowStockThreshold(stockQty)),
       tablets_per_sheet: parseNumber(item.tablets_per_sheet || item.tab_per_sheet, 0),
       supplier_name: item.supplier_name || item.supplier || '',
       item_category: item.item_category || item.category || 'Medicine',
