@@ -142,6 +142,11 @@ export default function QuickBill({ toast, shopSettings }) {
     [bill.items],
   );
 
+  function handlePhoneChange(val) {
+    const numeric = val.replace(/\D/g, '');
+    setBill((prev) => ({ ...prev, patient_phone: numeric }));
+  }
+
   function addQuickItem() {
     setBill((prev) => ({
       ...prev,
@@ -267,7 +272,14 @@ export default function QuickBill({ toast, shopSettings }) {
             <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Direct Billing</div>
             <h2 className="mt-1 text-xl font-extrabold text-slate-900">Quick Invoice</h2>
           </div>
-          <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4 items-end">
+          <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-5 lg:grid-cols-5 items-end">
+            <Input
+              label="Patient Phone"
+              value={bill.patient_phone}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              placeholder="e.g. 9876543210"
+              maxLength={10}
+            />
             <Input
               label="Patient Name"
               value={bill.patient_name}
@@ -417,7 +429,7 @@ export default function QuickBill({ toast, shopSettings }) {
                   <td className="px-4 py-4">
                     <div className="flex items-center">
                       <input
-                        className="w-16 rounded-xl border border-slate-300 px-2 py-2 text-center font-bold outline-none focus:border-blue-500 transition-all"
+                        className="w-20 rounded-xl border border-slate-300 px-2 py-2 text-center font-bold outline-none focus:border-blue-500 transition-all"
                         type="number"
                         min="0"
                         max="100"
