@@ -110,11 +110,15 @@ async function printBill(billIdOrData) {
   try {
     await new Promise((resolve, reject) => {
       let settled = false;
+      const printContents = printWindow.webContents;
 
       const cleanup = () => {
-        printWindow.webContents.removeListener('did-finish-load', handleLoadError);
-        printWindow.webContents.removeListener('render-process-gone', handleRenderGone);
-        printWindow.removeListener('closed', handleClosed);
+        if (printContents && !printContents.isDestroyed()) {
+          printContents.removeListener('render-process-gone', handleRenderGone);
+        }
+        if (!printWindow.isDestroyed()) {
+          printWindow.removeListener('closed', handleClosed);
+        }
       };
 
       const finish = (callback) => {
@@ -125,16 +129,15 @@ async function printBill(billIdOrData) {
       };
 
       const handleClosed = () => finish(resolve);
-      const handleLoadError = () => {};
       const handleRenderGone = () => finish(() => reject(new Error('Print window closed unexpectedly')));
 
       printWindow.on('closed', handleClosed);
-      printWindow.webContents.on('render-process-gone', handleRenderGone);
+      printContents.on('render-process-gone', handleRenderGone);
 
       printWindow.show();
       printWindow.focus();
 
-      printWindow.webContents.executeJavaScript(`
+      printContents.executeJavaScript(`
         new Promise((innerResolve) => {
           const done = () => {
             window.removeEventListener('afterprint', done);
