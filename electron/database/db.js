@@ -113,12 +113,21 @@ export function closeDatabase() {
   }
 }
 
+function restoreBundledSeedDatabase(dbPath) {
+  const bundledDbPath = path.join(process.resourcesPath, 'seed-data', 'pharmacy-pos.sqlite');
+  if (!fs.existsSync(bundledDbPath) || fs.existsSync(dbPath)) return;
+  fs.copyFileSync(bundledDbPath, dbPath);
+}
+
 export function initDatabase() {
   if (db) return db;
 
   const userData = app.getPath('userData');
   fs.mkdirSync(userData, { recursive: true });
   const dbPath = path.join(userData, 'pharmacy-pos.sqlite');
+  if (app.isPackaged) {
+    restoreBundledSeedDatabase(dbPath);
+  }
   const isFirstRun = !fs.existsSync(dbPath);
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');

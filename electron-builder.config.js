@@ -5,6 +5,13 @@ export default {
     output: 'release',
   },
   files: ['dist/**/*', 'out/**/*', 'package.json'],
+  extraResources: [
+    {
+      from: 'build/seed-data',
+      to: 'seed-data',
+      filter: ['**/*'],
+    },
+  ],
   extraMetadata: {
     main: 'out/main/main.js',
   },
