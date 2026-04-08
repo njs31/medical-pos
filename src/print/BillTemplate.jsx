@@ -1,17 +1,5 @@
 import { calculateBillTotals } from '@/utils/calculations';
-import { formatCurrency, formatDate } from '@/utils/formatters';
-
-function formatBillQty(qty, tps) {
-  const quantity = Number(qty) || 0;
-  const perSheet = Number(tps) || 0;
-  if (perSheet <= 0) return String(quantity);
-  const sheets = Math.floor(quantity / perSheet);
-  const loose = quantity % perSheet;
-
-  if (sheets === 0) return `${loose}T`;
-  if (loose === 0) return `${sheets}S`;
-  return `${sheets}S, ${loose}T`;
-}
+import { formatBillQty, formatCurrency, formatDate } from '@/utils/formatters';
 
 export default function BillTemplate({ bill }) {
   const settings = bill.settings || {};
@@ -74,7 +62,7 @@ export default function BillTemplate({ bill }) {
                 <td style={{ padding: '3px 6px', width: '70px' }}>{item.batch}</td>
                 <td style={{ padding: '3px 6px', width: '50px' }}>{item.expiry}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'right', width: '70px' }}>{formatCurrency(item.mrp)}</td>
-                <td style={{ padding: '3px 6px', textAlign: 'right', width: '50px' }}>{formatBillQty(item.qty, item.tablets_per_sheet)}</td>
+                <td style={{ padding: '3px 6px', textAlign: 'right', width: '50px' }}>{formatBillQty(item.qty, item.tablets_per_sheet, item.item_category)}</td>
                 <td style={{ padding: '3px 6px', textAlign: 'right', width: '80px' }}>{formatCurrency(item.base_amount)}</td>
               </tr>
             ))}

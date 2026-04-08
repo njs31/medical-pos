@@ -229,6 +229,9 @@ export function initDatabase() {
   if (!billItemsCols.some((col) => col.name === 'tablets_per_sheet')) {
     db.exec(`ALTER TABLE bill_items ADD COLUMN tablets_per_sheet INTEGER DEFAULT 0`);
   }
+  if (!billItemsCols.some((col) => col.name === 'item_category')) {
+    db.exec(`ALTER TABLE bill_items ADD COLUMN item_category TEXT DEFAULT 'Medicine'`);
+  }
 
   const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
   if (!hasSupplierName) {

@@ -54,10 +54,10 @@ export function isExpiringWithin(expiry, days = 90) {
   end.setDate(now.getDate() + days);
   return date >= now && date <= end;
 }
-export function formatBillQty(qty, tps) {
+export function formatBillQty(qty, tps, itemCategory = 'Medicine') {
   const quantity = Number(qty) || 0;
   const perSheet = Number(tps) || 0;
-  if (perSheet <= 0) return String(quantity);
+  if (itemCategory !== 'Medicine' || perSheet <= 0) return String(quantity);
   const sheets = Math.floor(quantity / perSheet);
   const loose = quantity % perSheet;
   
