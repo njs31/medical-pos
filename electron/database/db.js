@@ -119,6 +119,7 @@ export function initDatabase() {
   const userData = app.getPath('userData');
   fs.mkdirSync(userData, { recursive: true });
   const dbPath = path.join(userData, 'pharmacy-pos.sqlite');
+  const isFirstRun = !fs.existsSync(dbPath);
   db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -248,9 +249,12 @@ export function initDatabase() {
     db.exec(`ALTER TABLE medicines ADD COLUMN rack_number TEXT DEFAULT ''`);
   }
 
-  seedMedicines(db);
+  if (isFirstRun) {
+    seedMedicines(db);
+    seedSuppliers(db);
+  }
+
   seedSettings(db);
-  seedSuppliers(db);
   migrateDefaultShopSettings(db);
   
   // Custom migration for DHARVI SREE POLY CLINIC
