@@ -5,20 +5,10 @@ import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
-function getCategoryBadge(category) {
-  if (category === 'Medicine') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 mr-1" title="Medicine">M</span>;
-  if (category === 'General') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-blue-100 text-blue-700 mr-1" title="General">G</span>;
-  if (category === 'Surgical') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-green-100 text-green-700 mr-1" title="Surgical">S</span>;
-  return null;
-}
-
-function getProductTypeShortLabel(type) {
-  return String(type || '').toLowerCase() === 'ethical' ? 'E' : 'G';
-}
-
 function DualQuantityInput({ item, onChange }) {
-  const tps = Number(item.tablets_per_sheet) || 10;
+  const tps = Number(item.tablets_per_sheet) || 0;
   const mode = item.input_mode || 'sheet'; // default to sheet
+  const supportsSheetInput = tps > 0 && item.item_category === 'Medicine';
   
   const sheets = Math.floor(item.qty / tps);
   const tablets = item.qty % tps;
@@ -42,8 +32,25 @@ function DualQuantityInput({ item, onChange }) {
     onChange({ qty: q, input_mode: 'unit' });
   }
 
-  const isSheetMode = mode === 'sheet';
-  const isUnitMode = mode === 'unit';
+  const isSheetMode = supportsSheetInput && mode === 'sheet';
+  const isUnitMode = !supportsSheetInput || mode === 'unit';
+
+  if (!supportsSheetInput) {
+    return (
+      <div className="flex items-center">
+        <input
+          ref={uRef}
+          className="w-20 h-[38px] rounded-xl border border-slate-200 bg-white px-3 py-2 font-black text-slate-900 outline-none focus:border-blue-500 transition-all shadow-sm"
+          type="number"
+          min="0"
+          value={item.qty}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => handleUnitChange(e.target.value)}
+        />
+        <span className="ml-1 text-[11px] font-black text-slate-400">QTY</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-4">
@@ -155,8 +162,8 @@ export default function QuickBill({ toast, shopSettings }) {
           stock_qty: 99999,
           item_category: 'General',
           discount: 0,
-          tablets_per_sheet: 10,
-          input_mode: 'sheet',
+          tablets_per_sheet: 0,
+          input_mode: 'unit',
         },
       ],
     }));
@@ -319,12 +326,6 @@ export default function QuickBill({ toast, shopSettings }) {
                         <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
                           {medicine.pack}
                         </span>
-                        <span
-                          className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600 group-hover:bg-white/15 group-hover:text-white"
-                          title={medicine.product_type || 'Generic'}
-                        >
-                          {getProductTypeShortLabel(medicine.product_type)}
-                        </span>
                       </div>
                       <div className="text-xs font-bold text-slate-400 group-hover:text-blue-100">
                         Batch: {medicine.batch} • Exp: {medicine.expiry}
@@ -365,15 +366,12 @@ export default function QuickBill({ toast, shopSettings }) {
                 <tr key={item.id} className="group border-b border-slate-50 transition hover:bg-slate-50/50">
                   <td className="px-4 py-4 text-slate-400 font-bold">{index + 1}</td>
                   <td className="px-4 py-4 text-slate-900 font-bold">
-                    <div className="flex items-center">
-                      {getCategoryBadge(item.item_category)}
-                      <input
-                        className="bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-300 transition"
-                        value={item.product_name}
-                        onChange={(e) => updateItem(index, { product_name: e.target.value })}
-                        placeholder="Product Name"
-                      />
-                    </div>
+                    <input
+                      className="bg-transparent font-bold outline-none border-b border-transparent focus:border-blue-300 transition"
+                      value={item.product_name}
+                      onChange={(e) => updateItem(index, { product_name: e.target.value })}
+                      placeholder="Product Name"
+                    />
                   </td>
                   <td className="px-4 py-4">
                     <input
@@ -404,11 +402,12 @@ export default function QuickBill({ toast, shopSettings }) {
                         value={item.mrp}
                         onChange={(e) => {
                           const val = Number(e.target.value);
-                          const tps = Number(item.tablets_per_sheet) || 10;
-                          const perTabletRate = val / tps;
+                          const tps = Number(item.tablets_per_sheet) || 0;
+                          const hasSheetPricing = item.item_category === 'Medicine' && tps > 0;
+                          const perTabletRate = hasSheetPricing ? val / tps : val;
                           updateItem(index, { 
                             mrp: val, 
-                            rate: item.input_mode === 'unit' ? val : perTabletRate 
+                            rate: perTabletRate,
                           });
                         }}
                       />
@@ -417,7 +416,7 @@ export default function QuickBill({ toast, shopSettings }) {
                   <td className="px-4 py-4">
                     <div className="flex items-center">
                       <input
-                        className="w-12 rounded-xl border border-slate-300 px-2 py-2 text-center font-bold outline-none focus:border-blue-500 transition-all"
+                        className="w-16 rounded-xl border border-slate-300 px-2 py-2 text-center font-bold outline-none focus:border-blue-500 transition-all"
                         type="number"
                         min="0"
                         max="100"

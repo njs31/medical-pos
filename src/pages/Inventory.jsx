@@ -185,7 +185,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         supplier_name: form.supplier_name || '',
         item_category: itemCategory,
         rack_number: String(form.rack_number || '').trim(),
-        product_type: String(form.product_type || 'Generic').trim() || 'Generic',
+        product_type: itemCategory === 'Medicine'
+          ? String(form.product_type || 'Generic').trim() || 'Generic'
+          : '',
       };
 
       const itemType = itemCategory;
@@ -213,14 +215,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       if (!window.confirm('Delete this medicine?')) return;
       await window.api.medicines.delete(id);
       toast('Medicine deleted');
-      load();
-    });
-  }
-
-  function adjustStock(item, qty) {
-    requireAuth(async () => {
-      await window.api.medicines.adjustStock(item.id, qty);
-      toast(`Stock ${qty > 0 ? 'increased' : 'reduced'} for ${item.name}`);
       load();
     });
   }
@@ -322,7 +316,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['rack_number', 'Rack #'],
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
-                  ['mrp', 'Amount'],
+                  ['mrp', 'MRP'],
                   ['stock_qty', 'Stock Qty'],
                   ['supplier_name', 'Supplier'],
                 ].map(([key, label]) => (
@@ -343,12 +337,16 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     {item.name?.toUpperCase()}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700"
-                      title={item.product_type || 'Generic'}
-                    >
-                      {getProductTypeShortLabel(item.product_type)}
-                    </span>
+                    {item.item_category === 'Medicine' && item.product_type ? (
+                      <span
+                        className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700"
+                        title={item.product_type}
+                      >
+                        {getProductTypeShortLabel(item.product_type)}
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">{item.rack_number}</td>
                   <td className="px-4 py-3">{item.batch}</td>
@@ -374,12 +372,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, 1)}>
-                        +1
-                      </Button>
-                      <Button variant="secondary" className="px-3 py-2" onClick={() => adjustStock(item, -1)}>
-                        -1
-                      </Button>
                       <Button variant="secondary" className="px-3 py-2" onClick={() => openEditModal(item)}>
                         <Pencil size={14} />
                       </Button>
@@ -442,7 +434,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             ['rack_number', 'Rack Number'],
             ['batch', 'Batch No'],
             ['expiry', 'Expiry Date *'],
-            ['mrp', 'Amount (₹) *'],
+            ['mrp', 'MRP (₹) *'],
             ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets/Quantity) *' : 'Stock Quantity *'],
           ].map(([key, label]) => (
             <Input
@@ -468,15 +460,17 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             />
           )}
 
-          <Input
-            as="select"
-            label="Product Type"
-            value={form.product_type || 'Generic'}
-            onChange={(e) => setForm((prev) => ({ ...prev, product_type: e.target.value }))}
-          >
-            <option value="Generic">Generic</option>
-            <option value="Ethical">Ethical</option>
-          </Input>
+          {itemCategory === 'Medicine' && (
+            <Input
+              as="select"
+              label="Product Type"
+              value={form.product_type || 'Generic'}
+              onChange={(e) => setForm((prev) => ({ ...prev, product_type: e.target.value }))}
+            >
+              <option value="Generic">Generic</option>
+              <option value="Ethical">Ethical</option>
+            </Input>
+          )}
 
           <Input
             as="select"
