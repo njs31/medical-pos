@@ -12,6 +12,10 @@ function getCategoryBadge(category) {
   return null;
 }
 
+function getProductTypeShortLabel(type) {
+  return String(type || '').toLowerCase() === 'ethical' ? 'E' : 'G';
+}
+
 function DualQuantityInput({ item, onChange }) {
   const tps = Number(item.tablets_per_sheet) || 10;
   const mode = item.input_mode || 'sheet'; // default to sheet
@@ -315,8 +319,11 @@ export default function QuickBill({ toast, shopSettings }) {
                         <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
                           {medicine.pack}
                         </span>
-                        <span className="ml-2 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600 group-hover:bg-white/15 group-hover:text-white">
-                          {medicine.product_type || 'Generic'}
+                        <span
+                          className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600 group-hover:bg-white/15 group-hover:text-white"
+                          title={medicine.product_type || 'Generic'}
+                        >
+                          {getProductTypeShortLabel(medicine.product_type)}
                         </span>
                       </div>
                       <div className="text-xs font-bold text-slate-400 group-hover:text-blue-100">

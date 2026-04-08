@@ -12,6 +12,10 @@ function getCategoryBadge(category) {
   return null;
 }
 
+function getProductTypeShortLabel(type) {
+  return String(type || '').toLowerCase() === 'ethical' ? 'E' : 'G';
+}
+
 function SheetTabletInput({ qty, tabletsPerSheet, error, onChange }) {
   const tps = Number(tabletsPerSheet) || 1;
   const totalQty = Number(qty) || 0;
@@ -340,8 +344,11 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     <div>
                       <div className="flex items-center gap-2 font-bold text-slate-900">
                         <span>{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</span>
-                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">
-                          {item.product_type || 'Generic'}
+                        <span
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600"
+                          title={item.product_type || 'Generic'}
+                        >
+                          {getProductTypeShortLabel(item.product_type)}
                         </span>
                       </div>
                       <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>

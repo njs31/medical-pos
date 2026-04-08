@@ -30,6 +30,10 @@ function getCategoryBadge(category) {
   return null;
 }
 
+function getProductTypeShortLabel(type) {
+  return String(type || '').toLowerCase() === 'ethical' ? 'E' : 'G';
+}
+
 /** Format stock_qty into sheets + loose display */
 function formatStock(totalQty, tabletsPerSheet) {
   const qty = Number(totalQty) || 0;
@@ -339,8 +343,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     {item.name?.toUpperCase()}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
-                      {item.product_type || 'Generic'}
+                    <span
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700"
+                      title={item.product_type || 'Generic'}
+                    >
+                      {getProductTypeShortLabel(item.product_type)}
                     </span>
                   </td>
                   <td className="px-4 py-3">{item.rack_number}</td>
