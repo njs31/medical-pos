@@ -46,6 +46,8 @@ function createMainWindow() {
     minWidth: 1280,
     minHeight: 800,
     backgroundColor: '#F8FAFC',
+    show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: getPreloadPath(),
       contextIsolation: true,
@@ -59,6 +61,27 @@ function createMainWindow() {
   } else {
     mainWindow.loadFile(getRendererIndexPath());
   }
+
+  const focusRenderer = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.focus();
+    mainWindow.webContents.focus();
+  };
+
+  mainWindow.once('ready-to-show', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.show();
+    focusRenderer();
+    setTimeout(focusRenderer, 150);
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    setTimeout(focusRenderer, 100);
+  });
+
+  mainWindow.on('focus', () => {
+    setTimeout(focusRenderer, 0);
+  });
 }
 
 async function printBill(billIdOrData) {
