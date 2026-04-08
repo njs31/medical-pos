@@ -286,6 +286,7 @@ function parseCsv(content) {
       supplier_name: item.supplier_name || item.supplier || '',
       item_category: item.item_category || item.category || 'Medicine',
       rack_number: item.rack_number || item.rack || '',
+      product_type: item.product_type || item.generic_ethical || item.type || 'Generic',
     };
   });
 }
@@ -306,6 +307,7 @@ function toCsv(rows) {
     'supplier_name',
     'item_category',
     'rack_number',
+    'product_type',
   ];
   const lines = [headers.join(',')];
   rows.forEach((row) => {

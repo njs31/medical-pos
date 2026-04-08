@@ -20,6 +20,7 @@ const initialForm = {
   supplier_name: '',
   item_category: 'Medicine',
   rack_number: '',
+  product_type: 'Generic',
 };
 
 function getCategoryBadge(category) {
@@ -180,6 +181,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         supplier_name: form.supplier_name || '',
         item_category: itemCategory,
         rack_number: String(form.rack_number || '').trim(),
+        product_type: String(form.product_type || 'Generic').trim() || 'Generic',
       };
 
       const itemType = itemCategory;
@@ -312,6 +314,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               <tr>
                 {[
                   ['name', 'Product Name'],
+                  ['product_type', 'Type'],
                   ['rack_number', 'Rack #'],
                   ['batch', 'Batch'],
                   ['expiry', 'Expiry'],
@@ -334,6 +337,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <td className="px-4 py-3 font-semibold text-slate-900 flex items-center">
                     {getCategoryBadge(item.item_category || 'Medicine')}
                     {item.name?.toUpperCase()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                      {item.product_type || 'Generic'}
+                    </span>
                   </td>
                   <td className="px-4 py-3">{item.rack_number}</td>
                   <td className="px-4 py-3">{item.batch}</td>
@@ -452,6 +460,16 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               onChange={(e) => setForm((prev) => ({ ...prev, tablets_per_sheet: e.target.value }))}
             />
           )}
+
+          <Input
+            as="select"
+            label="Product Type"
+            value={form.product_type || 'Generic'}
+            onChange={(e) => setForm((prev) => ({ ...prev, product_type: e.target.value }))}
+          >
+            <option value="Generic">Generic</option>
+            <option value="Ethical">Ethical</option>
+          </Input>
 
           <Input
             as="select"

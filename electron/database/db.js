@@ -10,20 +10,20 @@ const DEFAULT_OLD_ADDRESS = '21 Wellness Avenue, Sector 5, New Delhi - 110001';
 const DEFAULT_NEW_SHOP_NAME = 'DHARVI SREE POLY CLINIC';
 const DEFAULT_NEW_ADDRESS =
   'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK, Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072';
-// [name, pack, hsn, batch, expiry, mrp, rate, purchase, sgst, cgst, stock, reorder, tab/sheet, supplier, category, rack]
+// [name, pack, hsn, batch, expiry, mrp, rate, purchase, sgst, cgst, stock, reorder, tab/sheet, supplier, category, rack, product_type]
 const sampleMedicines = [
   // Medicine (3)
-  ['DOLO 650 TAB',         '', '', 'D650A',  '08/27', 33,  33,  22,  0, 0, 150, 10, 15, 'Ankur Pharmacy', 'Medicine', 'A1'],
-  ['PAN 40 TAB',           '', '', 'P4024',  '07/28', 132, 132, 91,  0, 0,  80, 20, 15, 'Ankur Pharmacy', 'Medicine', 'A2'],
-  ['AZITHROMYCIN 500 TAB', '', '', 'AZ500B', '12/28', 89,  89,  63,  0, 0,  45, 10,  5, 'Ankur Pharmacy', 'Medicine', 'A3'],
+  ['DOLO 650 TAB',         '', '', 'D650A',  '08/27', 33,  33,  22,  0, 0, 150, 10, 15, 'Ankur Pharmacy', 'Medicine', 'A1', 'Generic'],
+  ['PAN 40 TAB',           '', '', 'P4024',  '07/28', 132, 132, 91,  0, 0,  80, 20, 15, 'Ankur Pharmacy', 'Medicine', 'A2', 'Ethical'],
+  ['AZITHROMYCIN 500 TAB', '', '', 'AZ500B', '12/28', 89,  89,  63,  0, 0,  45, 10,  5, 'Ankur Pharmacy', 'Medicine', 'A3', 'Generic'],
   // General (3)
-  ['BETADINE SOLUTION',    '', '', 'BT100',  '06/28', 75,  75,  50,  0, 0,  30,  5,  0, 'Ankur Pharmacy', 'General',  'C1'],
-  ['VICKS VAPORUB 25GM',   '', '', 'VV250',  '03/29', 65,  65,  45,  0, 0,  40,  5,  0, 'Ankur Pharmacy', 'General',  'C2'],
-  ['ORS POWDER',           '', '', 'ORS55',  '09/27', 22,  22,  12,  0, 0,  70, 20,  0, 'Ankur Pharmacy', 'General',  'C3'],
+  ['BETADINE SOLUTION',    '', '', 'BT100',  '06/28', 75,  75,  50,  0, 0,  30,  5,  0, 'Ankur Pharmacy', 'General',  'C1', 'Generic'],
+  ['VICKS VAPORUB 25GM',   '', '', 'VV250',  '03/29', 65,  65,  45,  0, 0,  40,  5,  0, 'Ankur Pharmacy', 'General',  'C2', 'Ethical'],
+  ['ORS POWDER',           '', '', 'ORS55',  '09/27', 22,  22,  12,  0, 0,  70, 20,  0, 'Ankur Pharmacy', 'General',  'C3', 'Generic'],
   // Surgical (3)
-  ['SURGICAL GLOVES M',   '', '', 'SG100',  '12/29', 12,  12,   8,  0, 0, 200, 20,  0, 'Ankur Pharmacy', 'Surgical', 'D1'],
-  ['COTTON ROLL 500GM',   '', '', 'CT500',  '11/30', 95,  95,  70,  0, 0,  20,  5,  0, 'Ankur Pharmacy', 'Surgical', 'D2'],
-  ['CREPE BANDAGE 6CM',   '', '', 'CB600',  '05/29', 45,  45,  30,  0, 0,  50, 10,  0, 'Ankur Pharmacy', 'Surgical', 'D3'],
+  ['SURGICAL GLOVES M',   '', '', 'SG100',  '12/29', 12,  12,   8,  0, 0, 200, 20,  0, 'Ankur Pharmacy', 'Surgical', 'D1', 'Generic'],
+  ['COTTON ROLL 500GM',   '', '', 'CT500',  '11/30', 95,  95,  70,  0, 0,  20,  5,  0, 'Ankur Pharmacy', 'Surgical', 'D2', 'Generic'],
+  ['CREPE BANDAGE 6CM',   '', '', 'CB600',  '05/29', 45,  45,  30,  0, 0,  50, 10,  0, 'Ankur Pharmacy', 'Surgical', 'D3', 'Generic'],
 ];
 
 export function getDb() {
@@ -41,8 +41,8 @@ function seedMedicines(database) {
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
       sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet,
-      supplier_name, item_category, rack_number
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      supplier_name, item_category, rack_number, product_type
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = database.transaction((rows) => {
@@ -143,7 +143,8 @@ export function initDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       supplier_name TEXT,
       item_category TEXT DEFAULT 'Medicine',
-      rack_number TEXT
+      rack_number TEXT,
+      product_type TEXT DEFAULT 'Generic'
     );
 
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -248,6 +249,12 @@ export function initDatabase() {
   if (!hasRackNumber) {
     db.exec(`ALTER TABLE medicines ADD COLUMN rack_number TEXT DEFAULT ''`);
   }
+
+  const hasProductType = medColumns.some((column) => column.name === 'product_type');
+  if (!hasProductType) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN product_type TEXT DEFAULT 'Generic'`);
+  }
+  db.exec(`UPDATE medicines SET product_type = 'Generic' WHERE product_type IS NULL OR TRIM(product_type) = ''`);
 
   if (isFirstRun) {
     seedMedicines(db);
