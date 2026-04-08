@@ -38,11 +38,11 @@ export function createBill(billData) {
     INSERT INTO bills (
       invoice_no, patient_name, patient_phone, doctor_name, date,
       subtotal, discount_percent, discount_amount, sgst_total, cgst_total,
-      grand_total, total_items, status
+      grand_total, total_items, status, created_at
     ) VALUES (
       @invoice_no, @patient_name, @patient_phone, @doctor_name, @date,
       @subtotal, @discount_percent, @discount_amount, @sgst_total, @cgst_total,
-      @grand_total, @total_items, @status
+      @grand_total, @total_items, @status, datetime('now')
     )
   `);
 

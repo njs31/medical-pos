@@ -1,5 +1,5 @@
 import { calculateBillTotals } from '@/utils/calculations';
-import { formatBillQty, formatCurrency, formatDate } from '@/utils/formatters';
+import { formatBillQty, formatBillTime, formatCurrency, formatDate } from '@/utils/formatters';
 
 export default function BillTemplate({ bill }) {
   const settings = bill.settings || {};
@@ -40,7 +40,7 @@ export default function BillTemplate({ bill }) {
           <div>Date: <b>{formatDate(bill.date)}</b></div>
           <div>Patient Phone: <b>{bill.patient_phone || '-'}</b></div>
           <div>Doctor Name: <b>{bill.doctor_name || settings.default_doctor || '-'}</b></div>
-          <div>Time: <b>{new Date(bill.created_at || new Date()).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true })}</b></div>
+          <div>Time: <b>{formatBillTime(bill.created_at)}</b></div>
         </div>
 
         {/* Items Table — full width */}

@@ -6,14 +6,75 @@ export function formatCurrency(value = 0) {
   }).format(Number(value || 0));
 }
 
+function parseIsoDateOnly(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return { year, month, day };
+}
+
+function parseSqliteTimestampUtc(value) {
+  const match = String(value || '').match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (!match) return null;
+  const [, year, month, day, hour = '00', minute = '00', second = '00'] = match;
+  return new Date(Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+  ));
+}
+
 export function formatDate(value) {
   if (!value) return '';
+  const isoDate = parseIsoDateOnly(value);
+  if (isoDate) {
+    return `${isoDate.day}/${isoDate.month}/${isoDate.year}`;
+  }
+
+  const sqliteDate = parseSqliteTimestampUtc(value);
+  if (sqliteDate) {
+    return new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'Asia/Kolkata',
+    }).format(sqliteDate);
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+  }).format(date);
+}
+
+export function formatBillTime(value) {
+  if (!value) return '';
+
+  const sqliteDate = parseSqliteTimestampUtc(value);
+  if (sqliteDate) {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(sqliteDate);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
   }).format(date);
 }
 
