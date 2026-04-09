@@ -6,6 +6,11 @@ export function formatCurrency(value = 0) {
   }).format(Number(value || 0));
 }
 
+function formatPlainNumber(value = 0) {
+  const quantity = Number(value) || 0;
+  return Number.isInteger(quantity) ? String(quantity) : String(Number(quantity.toFixed(2)));
+}
+
 function parseIsoDateOnly(value) {
   const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) return null;
@@ -115,14 +120,57 @@ export function isExpiringWithin(expiry, days = 90) {
   end.setDate(now.getDate() + days);
   return date >= now && date <= end;
 }
-export function formatBillQty(qty, tps, itemCategory = 'Medicine') {
+
+export function getQuantityBreakdown(qty, tps, itemCategory = 'Medicine') {
   const quantity = Number(qty) || 0;
   const perSheet = Number(tps) || 0;
-  if (itemCategory !== 'Medicine' || perSheet <= 0) return String(quantity);
+  const usesSheets = itemCategory === 'Medicine' && perSheet > 0;
+
+  if (!usesSheets) {
+    return {
+      quantity,
+      perSheet,
+      usesSheets: false,
+      sheets: 0,
+      tablets: quantity,
+      compact: formatPlainNumber(quantity),
+    };
+  }
+
   const sheets = Math.floor(quantity / perSheet);
-  const loose = quantity % perSheet;
-  
-  if (sheets === 0) return `${loose}T`;
-  if (loose === 0) return `${sheets}S`;
-  return `${sheets}S, ${loose}T`;
+  const tablets = quantity % perSheet;
+
+  let compact = `${sheets}S, ${tablets}T`;
+  if (sheets === 0) compact = `${tablets}T`;
+  if (tablets === 0) compact = `${sheets}S`;
+
+  return {
+    quantity,
+    perSheet,
+    usesSheets: true,
+    sheets,
+    tablets,
+    compact,
+  };
+}
+
+export function formatInventoryQty(qty, tps, itemCategory = 'Medicine') {
+  const breakdown = getQuantityBreakdown(qty, tps, itemCategory);
+  if (!breakdown.usesSheets) return breakdown.compact;
+  return `${breakdown.compact} / ${formatPlainNumber(breakdown.quantity)}`;
+}
+
+export function formatBillQty(qty, tps, itemCategory = 'Medicine') {
+  return getQuantityBreakdown(qty, tps, itemCategory).compact;
+}
+
+export function getPurchaseCostTooltip(purchaseRate, tps, itemCategory = 'Medicine') {
+  const unitCost = Number(purchaseRate) || 0;
+  const perSheet = Number(tps) || 0;
+
+  if (itemCategory === 'Medicine' && perSheet > 0) {
+    return `Purchase cost\nPer sheet: ${formatCurrency(unitCost * perSheet)}\nPer tablet: ${formatCurrency(unitCost)}`;
+  }
+
+  return `Purchase cost\nPer quantity: ${formatCurrency(unitCost)}`;
 }

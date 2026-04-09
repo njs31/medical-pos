@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { calculateBillTotals } from '@/utils/calculations';
-import { formatCurrency, isExpiringWithin, todayIso } from '@/utils/formatters';
+import { formatCurrency, formatInventoryQty, isExpiringWithin, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
 function getCategoryBadge(category) {
@@ -214,7 +214,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
       return;
     }
     if (!bill.items.length) {
-      toast('Add at least one medicine to the bill', 'error');
+      toast('Add at least one product to the bill', 'error');
       return;
     }
 
@@ -260,7 +260,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     // Stock validation
     bill.items.forEach((item, index) => {
       if (item.qty > item.stock_qty) {
-        errs[`item_${index}_qty`] = `You cannot bill more than what is in your current inventory. Your inventory: ${item.stock_qty}`;
+        errs[`item_${index}_qty`] = `You cannot bill more than what is in your current inventory. Your inventory: ${formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}`;
       }
     });
 
@@ -329,7 +329,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             <input
               type="text"
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
-              placeholder="🔍 Search medicine by name, batch, or HSN..."
+              placeholder="🔍 Search product by name, batch, or HSN..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -354,7 +354,9 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                       <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>
                     </div>
                     <div className="text-slate-600">Exp: {item.expiry}</div>
-                    <div className="text-slate-600">Qty: {item.stock_qty}</div>
+                    <div className="text-slate-600">
+                      Qty: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
+                    </div>
                     <div className="font-bold text-blue-600 text-right">{formatCurrency(item.mrp)}</div>
                   </button>
                 ))}
@@ -367,7 +369,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-base font-black uppercase tracking-wide text-slate-700">
               <tr>
-                {['#', 'Medicine', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
+                {['#', 'Product', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -412,6 +414,9 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                           }}
                         />
                       )}
+                      <div className="mt-1 text-[11px] font-medium text-slate-400">
+                        Stock: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
+                      </div>
                       {errors[`item_${index}_qty`] && (
                         <div className="absolute left-0 top-full z-10 mt-1 w-[240px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
                           {errors[`item_${index}_qty`]}
@@ -458,9 +463,9 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                 <tr>
                   <td colSpan="13" className="px-4 py-16 text-center">
                     <div className="mx-auto max-w-md rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10">
-                      <div className="text-lg font-bold text-slate-800">No medicines added yet</div>
+                      <div className="text-lg font-bold text-slate-800">No products added yet</div>
                       <div className="mt-2 text-sm text-slate-500">
-                        Use the medicine search panel above to add items to the bill.
+                        Use the product search panel above to add items to the bill.
                       </div>
                     </div>
                   </td>

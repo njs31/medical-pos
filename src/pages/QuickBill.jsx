@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { calculateBillTotals } from '@/utils/calculations';
-import { formatCurrency, todayIso } from '@/utils/formatters';
+import { formatCurrency, formatInventoryQty, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
 function DualQuantityInput({ item, onChange }) {
@@ -10,8 +10,8 @@ function DualQuantityInput({ item, onChange }) {
   const mode = item.input_mode || 'sheet'; // default to sheet
   const supportsSheetInput = tps > 0 && item.item_category === 'Medicine';
   
-  const sheets = Math.floor(item.qty / tps);
-  const tablets = item.qty % tps;
+  const sheets = supportsSheetInput ? Math.floor(item.qty / tps) : 0;
+  const tablets = supportsSheetInput ? item.qty % tps : 0;
 
   const sRef = useRef(null);
   const tRef = useRef(null);
@@ -298,7 +298,7 @@ export default function QuickBill({ toast, shopSettings }) {
               value={bill.date}
               onChange={(e) => setBill(p => ({ ...p, date: e.target.value }))}
             />
-             <Button onClick={addQuickItem} className="h-[48px] bg-slate-900 text-white font-bold rounded-2xl">
+            <Button onClick={addQuickItem} className="h-[48px] bg-slate-900 text-white font-bold rounded-2xl">
               + Manual Item
             </Button>
           </div>
@@ -309,7 +309,7 @@ export default function QuickBill({ toast, shopSettings }) {
         <div className="relative">
           <div className="mb-4">
             <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Inventory Search & Items</div>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900 italic">🔍 Search medicine by name, batch, or HSN...</h2>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900 italic">🔍 Search product by name, batch, or HSN...</h2>
           </div>
           <input
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-lg font-semibold tracking-tight shadow-sm transition focus:border-blue-500 focus:bg-white outline-none"
@@ -349,7 +349,7 @@ export default function QuickBill({ toast, shopSettings }) {
                       {formatCurrency(medicine.mrp)}
                     </div>
                     <div className={`text-[10px] font-black uppercase tracking-wider ${medicine.stock_qty < 10 ? 'text-red-500 group-hover:text-red-200' : 'text-slate-400 group-hover:text-blue-100'}`}>
-                      Stock: {medicine.stock_qty}
+                      Stock: {formatInventoryQty(medicine.stock_qty, medicine.tablets_per_sheet, medicine.item_category)}
                     </div>
                   </div>
                 </div>
@@ -363,7 +363,7 @@ export default function QuickBill({ toast, shopSettings }) {
             <thead className="sticky top-0 bg-slate-50/50 text-left text-base font-black uppercase tracking-widest text-slate-600 backdrop-blur-md">
               <tr>
                 <th className="px-4 py-4">#</th>
-                <th className="px-4 py-4">Medicine</th>
+                <th className="px-4 py-4">Product</th>
                 <th className="px-4 py-4">Batch</th>
                 <th className="px-4 py-4">Exp</th>
                 <th className="px-4 py-4">Qty</th>
@@ -400,10 +400,17 @@ export default function QuickBill({ toast, shopSettings }) {
                     />
                   </td>
                   <td className="px-4 py-4">
-                    <DualQuantityInput 
-                      item={item} 
-                      onChange={(update) => updateItem(index, update)} 
-                    />
+                    <div>
+                      <DualQuantityInput 
+                        item={item} 
+                        onChange={(update) => updateItem(index, update)} 
+                      />
+                      {item.stock_qty < 99999 && (
+                        <div className="mt-1 text-[11px] font-medium text-slate-400">
+                          Stock: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
+                        </div>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center font-bold text-slate-900">

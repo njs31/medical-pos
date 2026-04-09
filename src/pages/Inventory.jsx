@@ -4,7 +4,15 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LoginModal from '@/components/ui/LoginModal';
 import Modal from '@/components/ui/Modal';
-import { formatCurrency, isExpired, isExpiringWithin, normalizeExpiry, parseExpiry } from '@/utils/formatters';
+import {
+  formatCurrency,
+  formatInventoryQty,
+  getQuantityBreakdown,
+  isExpired,
+  isExpiringWithin,
+  normalizeExpiry,
+  parseExpiry,
+} from '@/utils/formatters';
 
 const initialForm = {
   name: '',
@@ -13,8 +21,7 @@ const initialForm = {
   batch: '',
   expiry: '',
   mrp: '',
-  rate: '',
-  purchase_rate: '',
+  purchase_cost_input: '',
   stock_qty: '',
   tablets_per_sheet: 0,
   supplier_name: '',
@@ -40,17 +47,47 @@ function getLowStockThreshold(stockQty) {
   return Math.max(1, Math.ceil(qty * 0.2));
 }
 
-/** Format stock_qty into sheets + loose display */
-function formatStock(totalQty, tabletsPerSheet) {
-  const qty = Number(totalQty) || 0;
-  const perSheet = Number(tabletsPerSheet) || 0;
-  if (perSheet <= 0) return { display: String(qty), sheets: 0, loose: qty, hasSheets: false };
-  const sheets = Math.floor(qty / perSheet);
-  const loose = qty % perSheet;
-  const parts = [];
-  parts.push(`${sheets}S`);
-  parts.push(`${loose}T`);
-  return { display: parts.join(', '), sheets, loose, hasSheets: true };
+function getPurchaseCostInputValue(item) {
+  const basePurchaseRate = Number(item.purchase_rate) || 0;
+  const tabletsPerSheet = Number(item.tablets_per_sheet) || 0;
+  const isMedicineWithSheets = item.item_category === 'Medicine' && tabletsPerSheet > 0;
+
+  if (isMedicineWithSheets) {
+    return String(Number((basePurchaseRate * tabletsPerSheet).toFixed(2)));
+  }
+
+  return basePurchaseRate > 0 ? String(basePurchaseRate) : '';
+}
+
+function getStoredPurchaseRate(form, itemCategory) {
+  const purchaseCostInput = Number(form.purchase_cost_input || 0);
+  const tabletsPerSheet = Number(form.tablets_per_sheet || 0);
+
+  if (itemCategory === 'Medicine' && tabletsPerSheet > 0) {
+    return Number((purchaseCostInput / tabletsPerSheet).toFixed(4));
+  }
+
+  return purchaseCostInput;
+}
+
+function getPurchaseCostLines(item) {
+  const unitCost = Number(item.purchase_rate) || 0;
+  const tabletsPerSheet = Number(item.tablets_per_sheet) || 0;
+  const isMedicine = item.item_category === 'Medicine';
+  const isMedicineWithSheets = isMedicine && tabletsPerSheet > 0;
+
+  if (isMedicineWithSheets) {
+    return [
+      `Per medicine: ${formatCurrency(unitCost)}`,
+      `Per sheet: ${formatCurrency(unitCost * tabletsPerSheet)}`,
+    ];
+  }
+
+  if (isMedicine) {
+    return [`Per medicine: ${formatCurrency(unitCost)}`];
+  }
+
+  return [`Per quantity: ${formatCurrency(unitCost)}`];
 }
 
 export default function Inventory({ toast, initialFilter = 'all' }) {
@@ -160,7 +197,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   function openEditModal(item) {
     requireAuth(() => {
       setEditingId(item.id);
-      setForm({ ...item, pack: item.pack || '' });
+      setForm({
+        ...item,
+        pack: item.pack || '',
+        purchase_cost_input: getPurchaseCostInputValue(item),
+      });
       setItemCategory(item.item_category || 'Medicine');
       setModalOpen(true);
     });
@@ -182,7 +223,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         expiry: normalizeExpiry(form.expiry),
         mrp: Number(form.mrp || 0),
         rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
-        purchase_rate: Number(form.purchase_rate || 0),
+        purchase_rate: getStoredPurchaseRate(form, itemCategory),
         stock_qty: Number(form.stock_qty || 0),
         reorder_level: getLowStockThreshold(form.stock_qty),
         sgst_percent: 0,
@@ -261,7 +302,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-card">
         <div className="min-w-[260px] flex-1">
-          <Input label="Search Medicines" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, HSN, batch" />
+          <Input label="Search Products" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, HSN, batch" />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Filter</label>
@@ -314,7 +355,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       <div className="overflow-hidden rounded-2xl bg-white shadow-card">
         <div className="max-h-[68vh] overflow-auto">
           <table className="min-w-full text-sm">
-            <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+            <thead className="sticky top-0 z-30 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 {[
                   ['name', 'Product Name'],
@@ -335,7 +376,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             </thead>
             <tbody>
               {filtered.map((item, index) => {
-                const stock = formatStock(item.stock_qty, item.tablets_per_sheet);
+                const stock = getQuantityBreakdown(item.stock_qty, item.tablets_per_sheet, item.item_category);
                 return (
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-3 font-semibold text-slate-900 flex items-center">
@@ -361,15 +402,15 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   </td>
                   <td className="px-4 py-3">{formatCurrency(item.mrp)}</td>
                   <td className="px-4 py-3 font-semibold">
-                    {stock.hasSheets ? (
+                    {stock.usesSheets ? (
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-slate-900">{item.stock_qty} total</span>
+                        <span className="text-slate-900">{stock.compact}</span>
                         <span className="text-xs font-medium text-indigo-600">
-                          {stock.display}
+                          {stock.quantity} total tablets
                         </span>
                       </div>
                     ) : (
-                      item.stock_qty
+                      formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)
                     )}
                   </td>
 
@@ -378,9 +419,25 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <Button variant="secondary" className="px-3 py-2" onClick={() => openEditModal(item)}>
-                        <Pencil size={14} />
-                      </Button>
+                      <div className="group relative">
+                        <Button
+                          variant="secondary"
+                          className="px-3 py-2"
+                          onClick={() => openEditModal(item)}
+                        >
+                          <Pencil size={14} />
+                        </Button>
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-1 hidden min-w-[190px] rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-left text-xs font-semibold text-white shadow-2xl group-hover:block">
+                          <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-300">
+                            Purchase Cost
+                          </div>
+                          {getPurchaseCostLines(item).map((line) => (
+                            <div key={line} className="leading-5 text-slate-100">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                       <Button variant="danger" className="px-3 py-2" onClick={() => remove(item.id)}>
                         <Trash2 size={14} />
                       </Button>
@@ -392,7 +449,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               {!filtered.length && (
                 <tr>
                   <td colSpan="12" className="px-4 py-12 text-center text-slate-500">
-                    No medicines found for the current filters.
+                    No products found for the current filters.
                   </td>
                 </tr>
               )}
@@ -441,16 +498,24 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             ['batch', 'Batch No'],
             ['expiry', 'Expiry Date *'],
             ['mrp', 'MRP (₹) *'],
-            ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets/Quantity) *' : 'Stock Quantity *'],
+            [
+              'purchase_cost_input',
+              itemCategory === 'Medicine'
+                ? Number(form.tablets_per_sheet || 0) > 0
+                  ? 'Purchase Cost Per Sheet (₹) *'
+                  : 'Purchase Cost Per Tablet (₹) *'
+                : 'Purchase Cost Per Quantity (₹) *',
+            ],
+            ['stock_qty', itemCategory === 'Medicine' ? 'Stock Quantity (Total Tablets) *' : 'Stock Quantity *'],
           ].map(([key, label]) => (
             <Input
               key={key}
               label={label}
-              type={['mrp', 'stock_qty'].includes(key) ? 'number' : 'text'}
+              type={['mrp', 'purchase_cost_input', 'stock_qty'].includes(key) ? 'number' : 'text'}
               value={form[key]}
-              required={['name', 'mrp', 'stock_qty'].includes(key)}
-              min={['mrp', 'stock_qty'].includes(key) ? 0 : undefined}
-              step={['mrp'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
+              required={['name', 'mrp', 'purchase_cost_input', 'stock_qty'].includes(key)}
+              min={['mrp', 'purchase_cost_input', 'stock_qty'].includes(key) ? 0 : undefined}
+              step={['mrp', 'purchase_cost_input'].includes(key) ? '0.01' : ['stock_qty'].includes(key) ? '1' : undefined}
               onFocus={key === 'mrp' ? (e) => e.target.select() : undefined}
               onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
             />
@@ -496,8 +561,17 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           {itemCategory === 'Medicine' && Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
             <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
               <span className="font-semibold">Stock preview: </span>
-              {formatStock(form.stock_qty, form.tablets_per_sheet).display}
-              <span className="text-indigo-500 ml-1">({form.stock_qty} total tablets)</span>
+              {formatInventoryQty(form.stock_qty, form.tablets_per_sheet, itemCategory)}
+              <span className="text-indigo-500 ml-1">total tablets</span>
+            </div>
+          )}
+
+          {itemCategory === 'Medicine' && Number(form.tablets_per_sheet) > 0 && form.purchase_cost_input !== '' && (
+            <div className="md:col-span-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <span className="font-semibold">Purchase cost preview: </span>
+              {formatCurrency(form.purchase_cost_input)} per sheet
+              <span className="mx-2 text-emerald-400">•</span>
+              {formatCurrency(getStoredPurchaseRate(form, itemCategory))} per tablet
             </div>
           )}
         </form>

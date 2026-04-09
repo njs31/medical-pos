@@ -47,7 +47,7 @@ export default function BillTemplate({ bill }) {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #000' }}>
-              {['SN', 'Medicine', 'Batch No', 'Exp', 'MRP', 'Qty', 'Amount'].map((head, i) => (
+              {['SN', 'Product', 'Batch No', 'Exp', 'MRP', 'Qty', 'Amount'].map((head, i) => (
                 <th key={head} style={{ padding: '3px 6px', textAlign: i >= 4 ? 'right' : 'left', fontWeight: 'bold' }}>
                   {head}
                 </th>
