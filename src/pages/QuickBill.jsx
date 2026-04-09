@@ -5,6 +5,42 @@ import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatInventoryQty, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
+function parseManualQty(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return 0;
+
+  const sheetMatch = raw.match(/(\d+)\s*S/);
+  const tabletMatch = raw.match(/(\d+)\s*T/);
+
+  if (sheetMatch || tabletMatch) {
+    const sheets = Number(sheetMatch?.[1] || 0);
+    const tablets = Number(tabletMatch?.[1] || 0);
+    return sheets + tablets;
+  }
+
+  const numberMatch = raw.match(/\d+(?:\.\d+)?/);
+  return Number(numberMatch?.[0] || 0);
+}
+
+function ManualQuantityInput({ item, onChange }) {
+  return (
+    <input
+      className="w-32 rounded-xl border border-slate-200 bg-white px-3 py-2 font-black text-slate-900 outline-none focus:border-blue-500 transition-all shadow-sm placeholder:text-slate-300"
+      type="text"
+      value={item.qty_input ?? String(item.qty ?? '')}
+      placeholder="e.g. 10 or 10 pcs"
+      onFocus={(e) => e.target.select()}
+      onChange={(e) => {
+        const qtyInput = e.target.value;
+        onChange({
+          qty_input: qtyInput,
+          qty: parseManualQty(qtyInput),
+        });
+      }}
+    />
+  );
+}
+
 function DualQuantityInput({ item, onChange }) {
   const tps = Number(item.tablets_per_sheet) || 0;
   const mode = item.input_mode || 'sheet'; // default to sheet
@@ -169,6 +205,7 @@ export default function QuickBill({ toast, shopSettings }) {
           discount: 0,
           tablets_per_sheet: 0,
           input_mode: 'unit',
+          qty_input: '1',
         },
       ],
     }));
@@ -401,10 +438,17 @@ export default function QuickBill({ toast, shopSettings }) {
                   </td>
                   <td className="px-4 py-4">
                     <div>
-                      <DualQuantityInput 
-                        item={item} 
-                        onChange={(update) => updateItem(index, update)} 
-                      />
+                      {String(item.id).startsWith('quick-') ? (
+                        <ManualQuantityInput
+                          item={item}
+                          onChange={(update) => updateItem(index, update)}
+                        />
+                      ) : (
+                        <DualQuantityInput 
+                          item={item} 
+                          onChange={(update) => updateItem(index, update)} 
+                        />
+                      )}
                       {item.stock_qty < 99999 && (
                         <div className="mt-1 text-[11px] font-medium text-slate-400">
                           Stock: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
