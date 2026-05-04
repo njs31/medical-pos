@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, Printer, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Printer, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import BillTemplate from '@/print/BillTemplate';
 import { formatCurrency, formatDate, todayIso } from '@/utils/formatters';
 
-export default function BillHistory({ toast }) {
+export default function BillHistory({ toast, onNavigate }) {
   const [bills, setBills] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
@@ -29,6 +29,11 @@ export default function BillHistory({ toast }) {
 
   async function openBill(id) {
     setSelectedBill(await window.api.bills.getById(id));
+  }
+
+  function editBill(bill) {
+    const target = bill.status?.startsWith('quick-') ? 'quick-bill' : 'new-bill';
+    onNavigate?.(target, { editBillId: bill.id });
   }
 
   async function remove(id) {
@@ -105,6 +110,12 @@ export default function BillHistory({ toast }) {
                         openBill(bill.id);
                       }}>
                         <Eye size={14} />
+                      </Button>
+                      <Button variant="secondary" className="px-3 py-2" onClick={(e) => {
+                        e.stopPropagation();
+                        editBill(bill);
+                      }}>
+                        <Pencil size={14} />
                       </Button>
                       <Button variant="secondary" className="px-3 py-2" onClick={(e) => {
                         e.stopPropagation();

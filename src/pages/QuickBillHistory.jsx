@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, Printer, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Printer, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import BillTemplate from '@/print/BillTemplate';
 import { formatCurrency, formatDate, todayIso } from '@/utils/formatters';
 
-export default function QuickBillHistory({ toast }) {
+export default function QuickBillHistory({ toast, onNavigate }) {
   const [bills, setBills] = useState([]);
   const [filters, setFilters] = useState({
     search: '',
@@ -103,6 +103,9 @@ export default function QuickBillHistory({ toast }) {
                     <div className="flex gap-2">
                        <button className="p-2 text-slate-400 hover:text-blue-600 transition" onClick={(e) => { e.stopPropagation(); openBill(bill.id); }}>
                         <Eye size={18} />
+                      </button>
+                      <button className="p-2 text-slate-400 hover:text-emerald-600 transition" onClick={(e) => { e.stopPropagation(); onNavigate?.('quick-bill', { editBillId: bill.id }); }}>
+                        <Pencil size={18} />
                       </button>
                       <button className="p-2 text-slate-400 hover:text-indigo-600 transition" onClick={(e) => { e.stopPropagation(); handlePrint(bill.id); }}>
                         <Printer size={18} />

@@ -13,8 +13,10 @@ contextBridge.exposeInMainWorld('api', {
   },
   bills: {
     create: (billData) => ipcRenderer.invoke('bills:create', billData),
+    update: (id, billData) => ipcRenderer.invoke('bills:update', id, billData),
     getAll: (filters) => ipcRenderer.invoke('bills:getAll', filters),
     getById: (id) => ipcRenderer.invoke('bills:getById', id),
+    getForEdit: (id) => ipcRenderer.invoke('bills:getForEdit', id),
     delete: (id) => ipcRenderer.invoke('bills:delete', id),
     print: (id) => ipcRenderer.invoke('bills:print', id),
     printRaw: (billData) => ipcRenderer.invoke('bills:printRaw', billData),

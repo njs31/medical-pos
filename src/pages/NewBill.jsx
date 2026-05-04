@@ -111,9 +111,10 @@ function MetricTile({ label, value, accent = 'slate' }) {
   );
 }
 
-export default function NewBill({ toast, onBillSaved, persistentBill, setPersistentBill, shopSettings }) {
+export default function NewBill({ toast, onBillSaved, persistentBill, setPersistentBill, shopSettings, editBillId, onNavigate }) {
+  const isEditing = Boolean(editBillId);
   const [settings, setSettings] = useState(shopSettings);
-  const [bill, setBill] = useState(persistentBill || createEmptyBill(shopSettings));
+  const [bill, setBill] = useState(isEditing ? createEmptyBill(shopSettings) : (persistentBill || createEmptyBill(shopSettings)));
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
 
@@ -121,7 +122,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     const nextInvoice = await window.api.bills.getNextInvoiceNo();
     const loadedSettings = shopSettings || (await window.api.settings.get());
     setSettings(loadedSettings);
-    
+
     // Only clear everything if we don't have a persistent bill with items
     if (!persistentBill || !persistentBill.items.length) {
       const newBill = {
@@ -138,16 +139,55 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     }
   }
 
+  async function loadForEdit(id) {
+    const loadedSettings = shopSettings || (await window.api.settings.get());
+    setSettings(loadedSettings);
+    const existing = await window.api.bills.getForEdit(id);
+    if (!existing) {
+      toast('Bill not found', 'error');
+      onNavigate?.('bill-history');
+      return;
+    }
+    setBill({
+      patient_name: existing.patient_name || '',
+      patient_phone: existing.patient_phone || '',
+      doctor_name: existing.doctor_name || '',
+      invoice_no: existing.invoice_no || '',
+      date: existing.date || todayIso(),
+      discount_percent: existing.discount_percent || '',
+      status: existing.status || 'saved',
+      items: (existing.items || []).map((item) => ({
+        medicine_id: item.medicine_id,
+        product_name: item.product_name,
+        pack: item.pack,
+        hsn_code: item.hsn_code,
+        batch: item.batch,
+        expiry: item.expiry,
+        qty: Number(item.qty) || 0,
+        mrp: Number(item.mrp) || 0,
+        rate: Number(item.rate) || 0,
+        purchase_rate: Number(item.purchase_rate) || 0,
+        amount: Number(item.amount) || 0,
+        stock_qty: Number(item.stock_qty) || 0,
+        item_category: item.item_category || 'Medicine',
+        discount: Number(item.discount) || 0,
+        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+      })),
+    });
+  }
+
   useEffect(() => {
-    if (!persistentBill) {
+    if (isEditing) {
+      loadForEdit(editBillId);
+    } else if (!persistentBill) {
       loadInitial();
     }
-  }, [persistentBill]);
+  }, [editBillId, isEditing, persistentBill]);
 
-  // Sync back to persistence on every change
+  // Sync back to persistence on every change (only when not editing)
   useEffect(() => {
-    setPersistentBill(bill);
-  }, [bill, setPersistentBill]);
+    if (!isEditing) setPersistentBill(bill);
+  }, [bill, isEditing, setPersistentBill]);
 
   useEffect(() => {
     if (!search.trim()) {
@@ -182,6 +222,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           rate: Number(medicine.tablets_per_sheet) > 0
             ? Number(medicine.mrp) / Number(medicine.tablets_per_sheet)
             : Number(medicine.mrp),
+          purchase_rate: Number(medicine.purchase_rate) || 0,
           amount: medicine.rate,
           stock_qty: medicine.stock_qty,
           item_category: medicine.item_category || 'Medicine',
@@ -210,7 +251,12 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
 
   async function saveBill(status, shouldPrint = false) {
     if (Object.keys(errors).length > 0) {
-      toast('Please fix the errors before saving', 'error');
+      const lossError = Object.entries(errors).find(([key]) => key.endsWith('_loss'));
+      if (lossError) {
+        toast(`Cannot bill: ${lossError[1]}`, 'error');
+      } else {
+        toast('Please fix the errors before saving', 'error');
+      }
       return;
     }
     if (!bill.items.length) {
@@ -220,13 +266,22 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
 
     const payload = {
       ...bill,
-      status,
+      status: isEditing ? (bill.status || status) : status,
       items: totals.items,
       subtotal: totals.subtotal,
       discount_percent: Number(bill.discount_percent || 0),
       discount_amount: totals.discountAmount,
       grand_total: totals.grandTotal,
     };
+
+    if (isEditing) {
+      const saved = await window.api.bills.update(editBillId, payload);
+      toast(`Bill ${saved.invoice_no} updated successfully`);
+      if (shouldPrint) await window.api.bills.print(saved.id);
+      onBillSaved?.();
+      onNavigate?.('bill-history');
+      return;
+    }
 
     const saved = await window.api.bills.create(payload);
     toast(`Bill ${saved.invoice_no} saved successfully`);
@@ -262,12 +317,28 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
       if (item.qty > item.stock_qty) {
         errs[`item_${index}_qty`] = `You cannot bill more than what is in your current inventory. Your inventory: ${formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}`;
       }
+
+      const purchaseRate = Number(item.purchase_rate) || 0;
+      const sellRate = Number(item.rate) || 0;
+      if (purchaseRate > 0 && sellRate < purchaseRate) {
+        const tps = Number(item.tablets_per_sheet) || 0;
+        const isPerSheet = item.item_category === 'Medicine' && tps > 0;
+        const purchaseDisplay = isPerSheet ? purchaseRate * tps : purchaseRate;
+        const sellDisplay = isPerSheet ? sellRate * tps : sellRate;
+        const unitLabel = isPerSheet ? 'sheet' : 'unit';
+        errs[`item_${index}_loss`] = `Selling below purchase cost. Purchase ${formatCurrency(purchaseDisplay)}/${unitLabel} > selling ${formatCurrency(sellDisplay)}/${unitLabel}.`;
+      }
     });
 
     return errs;
   }, [bill.patient_phone, bill.patient_name, bill.doctor_name, bill.items]);
 
   function clearBill() {
+    if (isEditing) {
+      if (!window.confirm('Discard your changes and return to bill history?')) return;
+      onNavigate?.('bill-history');
+      return;
+    }
     if (!window.confirm('Clear the current bill?')) return;
     setSearch('');
     setResults([]);
@@ -280,8 +351,12 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
       <section className="rounded-[28px] bg-white p-6 shadow-card">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-shrink-0">
-            <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Patient Desk</div>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Patient & Invoice</h2>
+            <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">
+              {isEditing ? 'Editing Bill' : 'Patient Desk'}
+            </div>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">
+              {isEditing ? `Edit ${bill.invoice_no || 'Bill'}` : 'Patient & Invoice'}
+            </h2>
           </div>
           
           <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 items-end">
@@ -425,7 +500,24 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-4 font-semibold text-slate-700">{formatCurrency(item.mrp)}</td>
+                  <td className="px-4 py-4 font-semibold text-slate-700">
+                    <div className="relative group">
+                      <div className={errors[`item_${index}_loss`] ? 'text-red-700 font-bold' : ''}>
+                        {formatCurrency(item.mrp)}
+                      </div>
+                      {errors[`item_${index}_loss`] && (
+                        <>
+                          <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-red-600">
+                            ⚠ Loss
+                          </div>
+                          <div className="absolute left-0 top-full z-10 mt-1 w-[260px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
+                            {errors[`item_${index}_loss`]}
+                            <div className="absolute -top-1 left-4 h-2 w-2 rotate-45 bg-red-600" />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center">
                       <input
@@ -505,20 +597,20 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   onClick={() => saveBill('saved', true)}
                   className="w-full rounded-xl bg-blue-600 px-6 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
                 >
-                  Save & Print
+                  {isEditing ? 'Update & Print' : 'Save & Print'}
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => saveBill('saved', false)}
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                   >
-                    Save
+                    {isEditing ? 'Update' : 'Save'}
                   </button>
                   <button
                     onClick={clearBill}
                     className="rounded-xl border border-red-100 bg-red-50/50 px-4 py-2.5 text-xs font-bold text-red-500 transition hover:bg-red-50 active:scale-95"
                   >
-                    Clear Bill
+                    {isEditing ? 'Cancel' : 'Clear Bill'}
                   </button>
                 </div>
               </div>

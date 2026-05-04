@@ -8,11 +8,13 @@ import {
   createBill,
   deleteBill,
   getBillById,
+  getBillForEdit,
   getBills,
   getDashboardSummary,
   getSalesSummary,
   getStockReport,
   previewNextInvoiceNo,
+  updateBill,
 } from './database/bills.js';
 import { initDatabase, closeDatabase } from './database/db.js';
 import {
@@ -426,8 +428,10 @@ ipcMain.handle('system:importDatabase', async () => {
 });
 
 ipcMain.handle('bills:create', async (_, billData) => createBill(billData));
+ipcMain.handle('bills:update', async (_, id, billData) => updateBill(id, billData));
 ipcMain.handle('bills:getAll', async (_, filters) => getBills(filters));
 ipcMain.handle('bills:getById', async (_, id) => getBillById(id));
+ipcMain.handle('bills:getForEdit', async (_, id) => getBillForEdit(id));
 ipcMain.handle('bills:delete', async (_, id) => deleteBill(id));
 ipcMain.handle('bills:print', async (_, id) => printBill(id));
 ipcMain.handle('bills:printRaw', async (_, billData) => printBill(billData));

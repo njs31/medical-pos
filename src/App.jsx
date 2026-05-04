@@ -88,12 +88,14 @@ export default function App() {
     }
     if (route === 'new-bill') {
       return (
-        <NewBill 
-          toast={toast} 
-          onBillSaved={loadDashboard} 
-          persistentBill={persistentBill} 
+        <NewBill
+          toast={toast}
+          onBillSaved={loadDashboard}
+          persistentBill={persistentBill}
           setPersistentBill={setPersistentBill}
           shopSettings={shopSettings}
+          editBillId={pageState.editBillId || null}
+          onNavigate={navigate}
         />
       );
     }
@@ -101,7 +103,7 @@ export default function App() {
       return <Inventory toast={toast} initialFilter={pageState.filter || 'all'} />;
     }
     if (route === 'bill-history') {
-      return <BillHistory toast={toast} />;
+      return <BillHistory toast={toast} onNavigate={navigate} />;
     }
     if (route === 'reports') {
       return <Reports />;
@@ -110,13 +112,20 @@ export default function App() {
       return <Settings toast={toast} />;
     }
     if (route === 'quick-bill') {
-      return <QuickBill toast={toast} shopSettings={shopSettings} />;
+      return (
+        <QuickBill
+          toast={toast}
+          shopSettings={shopSettings}
+          editBillId={pageState.editBillId || null}
+          onNavigate={navigate}
+        />
+      );
     }
     if (route === 'quick-history') {
-      return <QuickBillHistory toast={toast} />;
+      return <QuickBillHistory toast={toast} onNavigate={navigate} />;
     }
     return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
-  }, [dashboardSummary, pageState.filter, route, persistentBill, shopSettings]);
+  }, [dashboardSummary, pageState.filter, pageState.editBillId, route, persistentBill, shopSettings]);
 
   if (isPrintRoute) {
     return <div className="print-page">{printBill ? <BillTemplate bill={printBill} /> : null}</div>;

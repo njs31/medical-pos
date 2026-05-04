@@ -153,7 +153,8 @@ function DualQuantityInput({ item, onChange }) {
   );
 }
 
-export default function QuickBill({ toast, shopSettings }) {
+export default function QuickBill({ toast, shopSettings, editBillId, onNavigate }) {
+  const isEditing = Boolean(editBillId);
   const [bill, setBill] = useState({
     patient_name: '',
     patient_phone: '',
@@ -161,7 +162,7 @@ export default function QuickBill({ toast, shopSettings }) {
     date: todayIso(),
     items: [],
   });
-  
+
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
 
@@ -173,10 +174,67 @@ export default function QuickBill({ toast, shopSettings }) {
     }
   }, [search]);
 
+  useEffect(() => {
+    if (!isEditing) return;
+    (async () => {
+      const existing = await window.api.bills.getForEdit(editBillId);
+      if (!existing) {
+        toast('Quick bill not found', 'error');
+        onNavigate?.('quick-history');
+        return;
+      }
+      setBill({
+        patient_name: existing.patient_name || '',
+        patient_phone: existing.patient_phone || '',
+        doctor_name: existing.doctor_name || '',
+        date: existing.date || todayIso(),
+        invoice_no: existing.invoice_no || '',
+        status: existing.status || 'quick-saved',
+        items: (existing.items || []).map((item, idx) => ({
+          id: item.medicine_id ? `inv-${item.id}-${idx}` : `quick-${item.id}-${idx}`,
+          medicine_id: null, // QuickBill never reduces inventory
+          product_name: item.product_name || '',
+          pack: item.pack || '',
+          hsn_code: item.hsn_code || '',
+          batch: item.batch || '-',
+          expiry: item.expiry || '-',
+          qty: Number(item.qty) || 0,
+          mrp: Number(item.mrp) || 0,
+          rate: Number(item.rate) || 0,
+          purchase_rate: Number(item.purchase_rate) || 0,
+          amount: Number(item.amount) || 0,
+          stock_qty: 99999,
+          item_category: item.item_category || 'General',
+          discount: Number(item.discount) || 0,
+          tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+          input_mode: Number(item.tablets_per_sheet) > 0 ? 'sheet' : 'unit',
+          qty_input: String(item.qty || ''),
+        })),
+      });
+    })();
+  }, [editBillId, isEditing]);
+
   const totals = useMemo(
     () => calculateBillTotals(bill.items, 0),
     [bill.items],
   );
+
+  const lossErrors = useMemo(() => {
+    const errs = {};
+    bill.items.forEach((item, index) => {
+      const purchaseRate = Number(item.purchase_rate) || 0;
+      const sellRate = Number(item.rate) || 0;
+      if (purchaseRate > 0 && sellRate < purchaseRate) {
+        const tps = Number(item.tablets_per_sheet) || 0;
+        const isPerSheet = item.item_category === 'Medicine' && tps > 0;
+        const purchaseDisplay = isPerSheet ? purchaseRate * tps : purchaseRate;
+        const sellDisplay = isPerSheet ? sellRate * tps : sellRate;
+        const unitLabel = isPerSheet ? 'sheet' : 'unit';
+        errs[index] = `Selling below purchase cost. Purchase ${formatCurrency(purchaseDisplay)}/${unitLabel} > selling ${formatCurrency(sellDisplay)}/${unitLabel}.`;
+      }
+    });
+    return errs;
+  }, [bill.items]);
 
   function handlePhoneChange(val) {
     const numeric = val.replace(/\D/g, '');
@@ -230,6 +288,7 @@ export default function QuickBill({ toast, shopSettings }) {
           rate: Number(medicine.tablets_per_sheet) > 0
             ? Number(medicine.mrp) / Number(medicine.tablets_per_sheet)
             : Number(medicine.mrp),
+          purchase_rate: Number(medicine.purchase_rate) || 0,
           amount: medicine.rate,
           stock_qty: medicine.stock_qty,
           item_category: medicine.item_category || 'Medicine',
@@ -262,10 +321,15 @@ export default function QuickBill({ toast, shopSettings }) {
       toast('Add at least one item', 'error');
       return;
     }
+    const firstLoss = Object.values(lossErrors)[0];
+    if (firstLoss) {
+      toast(`Cannot bill: ${firstLoss}`, 'error');
+      return;
+    }
     const payload = {
       ...bill,
-      invoice_no: 'QK-' + Date.now().toString().slice(-6),
-      status: `quick-${status}`,
+      invoice_no: isEditing ? bill.invoice_no : 'QK-' + Date.now().toString().slice(-6),
+      status: isEditing ? (bill.status || `quick-${status}`) : `quick-${status}`,
       items: totals.items,
       subtotal: totals.subtotal,
       discount_percent: Number(bill.discount_percent || 0),
@@ -273,13 +337,21 @@ export default function QuickBill({ toast, shopSettings }) {
       grand_total: totals.grandTotal,
     };
 
+    if (isEditing) {
+      const saved = await window.api.bills.update(editBillId, payload);
+      toast(`Quick Bill ${saved.invoice_no} updated`);
+      if (shouldPrint) await window.api.bills.print(saved.id);
+      onNavigate?.('quick-history');
+      return;
+    }
+
     const saved = await window.api.bills.create(payload);
     toast(`Quick Bill ${status === 'draft' ? 'drafted' : 'saved'} successfully`);
-    
+
     if (shouldPrint) {
       await window.api.bills.print(saved.id);
     }
-    
+
     setBill({
       patient_name: '',
       patient_phone: '',
@@ -291,6 +363,11 @@ export default function QuickBill({ toast, shopSettings }) {
   }
 
   function clearBill() {
+    if (isEditing) {
+      if (!window.confirm('Discard your changes and return to history?')) return;
+      onNavigate?.('quick-history');
+      return;
+    }
     if (!window.confirm('Clear the current quick bill?')) return;
     setBill({
       patient_name: '',
@@ -306,8 +383,12 @@ export default function QuickBill({ toast, shopSettings }) {
       <section className="rounded-[28px] bg-white p-6 shadow-card">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex-shrink-0">
-            <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Direct Billing</div>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900">Quick Invoice</h2>
+            <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">
+              {isEditing ? 'Editing Quick Bill' : 'Direct Billing'}
+            </div>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900">
+              {isEditing ? `Edit ${bill.invoice_no || 'Quick Bill'}` : 'Quick Invoice'}
+            </h2>
           </div>
           <div className="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-5 lg:grid-cols-5 items-end">
             <Input
@@ -457,24 +538,37 @@ export default function QuickBill({ toast, shopSettings }) {
                     </div>
                   </td>
                   <td className="px-4 py-4">
-                    <div className="flex items-center font-bold text-slate-900">
-                      <span>₹</span>
-                      <input
-                        className="w-20 bg-transparent outline-none ml-1"
-                        type="number"
-                        value={item.mrp}
-                        onFocus={(e) => e.target.select()}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          const tps = Number(item.tablets_per_sheet) || 0;
-                          const hasSheetPricing = item.item_category === 'Medicine' && tps > 0;
-                          const perTabletRate = hasSheetPricing ? val / tps : val;
-                          updateItem(index, { 
-                            mrp: val, 
-                            rate: perTabletRate,
-                          });
-                        }}
-                      />
+                    <div className="relative group">
+                      <div className={`flex items-center font-bold ${lossErrors[index] ? 'text-red-700' : 'text-slate-900'}`}>
+                        <span>₹</span>
+                        <input
+                          className="w-20 bg-transparent outline-none ml-1"
+                          type="number"
+                          value={item.mrp}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            const tps = Number(item.tablets_per_sheet) || 0;
+                            const hasSheetPricing = item.item_category === 'Medicine' && tps > 0;
+                            const perTabletRate = hasSheetPricing ? val / tps : val;
+                            updateItem(index, {
+                              mrp: val,
+                              rate: perTabletRate,
+                            });
+                          }}
+                        />
+                      </div>
+                      {lossErrors[index] && (
+                        <>
+                          <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-red-600">
+                            ⚠ Loss
+                          </div>
+                          <div className="absolute left-0 top-full z-10 mt-1 w-[260px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
+                            {lossErrors[index]}
+                            <div className="absolute -top-1 left-4 h-2 w-2 rotate-45 bg-red-600" />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -550,20 +644,20 @@ export default function QuickBill({ toast, shopSettings }) {
                 onClick={() => saveQuickBill('saved', true)}
                 className="w-full rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-xl font-black text-white shadow-xl shadow-blue-200 transition active:scale-[0.98] hover:shadow-2xl hover:-translate-y-0.5"
               >
-                ⚡ SAVE & PRINT
+                {isEditing ? '⚡ UPDATE & PRINT' : '⚡ SAVE & PRINT'}
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => saveQuickBill('saved', false)}
                   className="rounded-2xl border-2 border-slate-100 bg-white p-4 text-sm font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
                 >
-                  Save (No Print)
+                  {isEditing ? 'Update (No Print)' : 'Save (No Print)'}
                 </button>
                 <button
                   onClick={clearBill}
                   className="rounded-2xl border-2 border-red-50 bg-red-50 p-4 text-sm font-bold text-red-600 transition hover:bg-red-100 active:scale-95"
                 >
-                  Clear All
+                  {isEditing ? 'Cancel' : 'Clear All'}
                 </button>
               </div>
            </div>

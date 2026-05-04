@@ -135,6 +135,101 @@ export function getBillById(id) {
   };
 }
 
+export function getBillForEdit(id) {
+  const bill = getDb().prepare('SELECT * FROM bills WHERE id = ?').get(id);
+  if (!bill) return null;
+
+  const items = getBillItems(id).map((item) => {
+    if (!item.medicine_id) return { ...item, stock_qty: item.stock_qty ?? 99999 };
+    const med = getDb()
+      .prepare('SELECT stock_qty, tablets_per_sheet, item_category, purchase_rate FROM medicines WHERE id = ?')
+      .get(item.medicine_id);
+    if (!med) return { ...item, stock_qty: item.qty };
+    return {
+      ...item,
+      stock_qty: Number(med.stock_qty || 0) + Number(item.qty || 0),
+      tablets_per_sheet: item.tablets_per_sheet ?? med.tablets_per_sheet,
+      item_category: item.item_category ?? med.item_category,
+      purchase_rate: Number(med.purchase_rate) || 0,
+    };
+  });
+
+  return {
+    ...bill,
+    items,
+    settings: getSettings(),
+  };
+}
+
+export function updateBill(id, billData) {
+  const database = getDb();
+  const oldItems = getBillItems(id);
+
+  const updateBillStmt = database.prepare(`
+    UPDATE bills SET
+      patient_name = @patient_name,
+      patient_phone = @patient_phone,
+      doctor_name = @doctor_name,
+      date = @date,
+      subtotal = @subtotal,
+      discount_percent = @discount_percent,
+      discount_amount = @discount_amount,
+      sgst_total = @sgst_total,
+      cgst_total = @cgst_total,
+      grand_total = @grand_total,
+      total_items = @total_items,
+      status = @status
+    WHERE id = @id
+  `);
+
+  const insertItem = database.prepare(`
+    INSERT INTO bill_items (
+      bill_id, medicine_id, product_name, pack, hsn_code, batch, expiry,
+      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet, item_category
+    ) VALUES (
+      @bill_id, @medicine_id, @product_name, @pack, @hsn_code, @batch, @expiry,
+      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet, @item_category
+    )
+  `);
+
+  const deleteItems = database.prepare('DELETE FROM bill_items WHERE bill_id = ?');
+  const restoreStock = database.prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?');
+  const reduceStock = database.prepare('UPDATE medicines SET stock_qty = stock_qty - ? WHERE id = ?');
+
+  const tx = database.transaction(() => {
+    for (const item of oldItems) {
+      if (item.medicine_id) restoreStock.run(item.qty, item.medicine_id);
+    }
+
+    deleteItems.run(id);
+
+    updateBillStmt.run({
+      sgst_total: 0,
+      cgst_total: 0,
+      ...billData,
+      id,
+      total_items: billData.items.length,
+    });
+
+    for (const item of billData.items) {
+      insertItem.run({
+        sgst_percent: 0,
+        cgst_percent: 0,
+        discount: item.discount || 0,
+        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+        item_category: item.item_category || 'Medicine',
+        ...item,
+        bill_id: id,
+        medicine_id: item.medicine_id || null,
+      });
+      if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
+    }
+  });
+
+  tx();
+  return getBillById(id);
+}
+
 export function deleteBill(id) {
   const items = getBillItems(id);
   const restore = getDb().prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?');
