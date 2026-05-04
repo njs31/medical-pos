@@ -16,7 +16,7 @@ import {
   previewNextInvoiceNo,
   updateBill,
 } from './database/bills.js';
-import { initDatabase, closeDatabase } from './database/db.js';
+import { initDatabase, closeDatabase, getDb } from './database/db.js';
 import {
   addMedicine,
   adjustMedicineStock,
@@ -393,6 +393,14 @@ ipcMain.handle('system:exportDatabase', async () => {
     });
 
     if (canceled || !filePath) return { success: false };
+
+    // Flush WAL into the main DB file so the copy contains every committed write.
+    try {
+      getDb().pragma('wal_checkpoint(TRUNCATE)');
+    } catch (e) {
+      console.warn('WAL checkpoint before export failed:', e?.message);
+    }
+
     await fs.copyFile(dbPath, filePath);
     return { success: true };
   } catch (error) {
@@ -410,16 +418,33 @@ ipcMain.handle('system:importDatabase', async () => {
     });
 
     if (canceled || filePaths.length === 0) return { success: false };
-    
+
     const dbPath = path.join(app.getPath('userData'), 'pharmacy-pos.sqlite');
-    closeDatabase(); // Important to release file handle
+
+    // Checkpoint + close so the file handle is released cleanly.
+    try {
+      getDb().pragma('wal_checkpoint(TRUNCATE)');
+    } catch (e) {
+      console.warn('WAL checkpoint before import failed:', e?.message);
+    }
+    closeDatabase();
+
+    // Remove stale WAL/SHM auxiliary files — otherwise SQLite will overlay the
+    // old write-ahead log on top of the freshly imported database file.
+    for (const suffix of ['-wal', '-shm', '-journal']) {
+      try {
+        await fs.unlink(dbPath + suffix);
+      } catch (e) {
+        if (e.code !== 'ENOENT') console.warn(`Could not remove ${suffix}:`, e.message);
+      }
+    }
 
     await fs.copyFile(filePaths[0], dbPath);
-    
+
     // Relaunch the app to pick up new database
     app.relaunch();
     app.exit(0);
-    
+
     return { success: true };
   } catch (error) {
     console.error('Database import failed:', error);

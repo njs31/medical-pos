@@ -311,7 +311,10 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     if (/[0-9]/.test(bill.doctor_name)) {
       errs.doctor_name = 'Numbers are not allowed in doctor name';
     }
-    
+
+    const globalDiscPct = Math.max(0, Math.min(100, Number(bill.discount_percent || 0)));
+    const globalFactor = 1 - globalDiscPct / 100;
+
     // Stock validation
     bill.items.forEach((item, index) => {
       if (item.qty > item.stock_qty) {
@@ -320,18 +323,37 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
 
       const purchaseRate = Number(item.purchase_rate) || 0;
       const sellRate = Number(item.rate) || 0;
-      if (purchaseRate > 0 && sellRate < purchaseRate) {
+      const lineDiscPct = Math.max(0, Math.min(100, Number(item.discount || 0)));
+      const effectiveRate = sellRate * (1 - lineDiscPct / 100) * globalFactor;
+      if (purchaseRate > 0 && effectiveRate < purchaseRate) {
         const tps = Number(item.tablets_per_sheet) || 0;
         const isPerSheet = item.item_category === 'Medicine' && tps > 0;
         const purchaseDisplay = isPerSheet ? purchaseRate * tps : purchaseRate;
-        const sellDisplay = isPerSheet ? sellRate * tps : sellRate;
+        const sellDisplay = isPerSheet ? effectiveRate * tps : effectiveRate;
         const unitLabel = isPerSheet ? 'sheet' : 'unit';
-        errs[`item_${index}_loss`] = `Selling below purchase cost. Purchase ${formatCurrency(purchaseDisplay)}/${unitLabel} > selling ${formatCurrency(sellDisplay)}/${unitLabel}.`;
+        errs[`item_${index}_loss`] = `Selling below purchase cost after discount. Purchase ${formatCurrency(purchaseDisplay)}/${unitLabel} > selling ${formatCurrency(sellDisplay)}/${unitLabel}.`;
       }
     });
 
     return errs;
-  }, [bill.patient_phone, bill.patient_name, bill.doctor_name, bill.items]);
+  }, [bill.patient_phone, bill.patient_name, bill.doctor_name, bill.items, bill.discount_percent]);
+
+  const hasLossError = useMemo(
+    () => Object.keys(errors).some((k) => k.endsWith('_loss')),
+    [errors],
+  );
+
+  const [lossBannerVisible, setLossBannerVisible] = useState(false);
+  const prevHadLoss = useRef(false);
+  useEffect(() => {
+    if (hasLossError && !prevHadLoss.current) {
+      setLossBannerVisible(true);
+      const t = setTimeout(() => setLossBannerVisible(false), 2000);
+      prevHadLoss.current = true;
+      return () => clearTimeout(t);
+    }
+    if (!hasLossError) prevHadLoss.current = false;
+  }, [hasLossError]);
 
   function clearBill() {
     if (isEditing) {
@@ -595,14 +617,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               <div className="grid w-full sm:w-auto gap-3 min-w-[200px]">
                 <button
                   onClick={() => saveBill('saved', true)}
-                  className="w-full rounded-xl bg-blue-600 px-6 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95"
+                  disabled={hasLossError}
+                  className="w-full rounded-xl bg-blue-600 px-6 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none disabled:hover:bg-slate-300 disabled:active:scale-100"
                 >
                   {isEditing ? 'Update & Print' : 'Save & Print'}
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => saveBill('saved', false)}
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95"
+                    disabled={hasLossError}
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-600 transition hover:bg-slate-50 active:scale-95 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:bg-slate-100 disabled:active:scale-100"
                   >
                     {isEditing ? 'Update' : 'Save'}
                   </button>
@@ -618,6 +642,12 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           </div>
         </div>
       </section>
+
+      {lossBannerVisible && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white shadow-2xl scale-in-center">
+          Selling price is below purchase cost. Save disabled.
+        </div>
+      )}
     </div>
   );
 }
