@@ -11,6 +11,7 @@ import {
   getBillForEdit,
   getBills,
   getDashboardSummary,
+  getDayDetails,
   getSalesSummary,
   getStockReport,
   previewNextInvoiceNo,
@@ -467,6 +468,7 @@ ipcMain.handle('dashboard:summary', async () => getDashboardSummary());
 
 ipcMain.handle('reports:sales', async (_, from, to) => getSalesSummary(from, to));
 ipcMain.handle('reports:stock', async () => getStockReport());
+ipcMain.handle('reports:dayDetails', async (_, date) => getDayDetails(date));
 
 ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));

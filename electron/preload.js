@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('api', {
   reports: {
     getSalesSummary: (from, to) => ipcRenderer.invoke('reports:sales', from, to),
     getStockReport: () => ipcRenderer.invoke('reports:stock'),
+    getDayDetails: (date) => ipcRenderer.invoke('reports:dayDetails', date),
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

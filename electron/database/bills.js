@@ -320,6 +320,49 @@ export function getSalesSummary(from, to) {
   return { totals, dayWise, topMedicines };
 }
 
+export function getDayDetails(date) {
+  const normalized = String(date || '').slice(0, 10);
+  const params = { date: normalized };
+
+  const totals = getDb().prepare(`
+    SELECT
+      COALESCE(SUM(grand_total), 0) as total_sales,
+      COUNT(*) as total_bills
+    FROM bills
+    WHERE date(date) = date(@date)
+       OR substr(date, 1, 10) = @date
+  `).get(params);
+
+  const items = getDb().prepare(`
+    SELECT
+      bill_items.product_name as product_name,
+      SUM(bill_items.qty) as qty,
+      SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
+      SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
+      SUM(
+        bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)
+        - bill_items.qty * COALESCE(medicines.purchase_rate, 0)
+      ) as profit
+    FROM bill_items
+    JOIN bills ON bills.id = bill_items.bill_id
+    LEFT JOIN medicines ON medicines.id = bill_items.medicine_id
+    WHERE date(bills.date) = date(@date)
+       OR substr(bills.date, 1, 10) = @date
+    GROUP BY bill_items.product_name
+    ORDER BY total_amount DESC, product_name ASC
+  `).all(params);
+
+  const totalProfit = items.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
+
+  return {
+    date: normalized,
+    totalSales: Number(totals.total_sales) || 0,
+    totalBills: Number(totals.total_bills) || 0,
+    totalProfit,
+    items,
+  };
+}
+
 export function getStockReport() {
   const inventoryValuation = getDb().prepare(`
     SELECT COALESCE(SUM(stock_qty * COALESCE(purchase_rate, rate, 0)), 0) as value
