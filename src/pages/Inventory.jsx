@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, Layers, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LoginModal from '@/components/ui/LoginModal';
@@ -154,13 +154,24 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     setFilter(initialFilter);
   }, [initialFilter]);
 
+  const batchCountByName = useMemo(() => {
+    const counts = new Map();
+    medicines.forEach((item) => {
+      const key = String(item.name || '').trim().toUpperCase();
+      if (!key) return;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+  }, [medicines]);
+
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     const result = medicines.filter((item) => {
       const match =
         item.name.toLowerCase().includes(term) ||
         String(item.hsn_code || '').toLowerCase().includes(term) ||
-        String(item.batch || '').toLowerCase().includes(term);
+        String(item.batch || '').toLowerCase().includes(term) ||
+        String(item.supplier_name || '').toLowerCase().includes(term);
       if (!match) return false;
       if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
       if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 90);
@@ -172,7 +183,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       if (sortKey === 'expiry') {
         const timeA = parseExpiry(a.expiry)?.getTime() || 0;
         const timeB = parseExpiry(b.expiry)?.getTime() || 0;
-        return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+        if (timeA !== timeB) return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+        return String(a.name || '').localeCompare(String(b.name || ''));
       }
       const first = a[sortKey] ?? '';
       const second = b[sortKey] ?? '';
@@ -180,7 +192,13 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         typeof first === 'number' || typeof second === 'number'
           ? Number(first) - Number(second)
           : String(first).localeCompare(String(second));
-      return sortDir === 'asc' ? comparison : -comparison;
+      if (comparison !== 0) return sortDir === 'asc' ? comparison : -comparison;
+      // Stable secondary sort: same-name rows grouped, then by expiry (soonest first)
+      const nameCmp = String(a.name || '').localeCompare(String(b.name || ''));
+      if (nameCmp !== 0) return nameCmp;
+      const expA = parseExpiry(a.expiry)?.getTime() || 0;
+      const expB = parseExpiry(b.expiry)?.getTime() || 0;
+      return expA - expB;
     });
     return result;
   }, [filter, medicines, search, sortDir, sortKey]);
@@ -201,6 +219,29 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         ...item,
         pack: item.pack || '',
         purchase_cost_input: getPurchaseCostInputValue(item),
+      });
+      setItemCategory(item.item_category || 'Medicine');
+      setModalOpen(true);
+    });
+  }
+
+  function openAddBatchModal(item) {
+    requireAuth(() => {
+      setEditingId(null);
+      setForm({
+        ...initialForm,
+        name: item.name || '',
+        pack: item.pack || '',
+        mrp: item.mrp ?? '',
+        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+        supplier_name: item.supplier_name || '',
+        item_category: item.item_category || 'Medicine',
+        rack_number: item.rack_number || '',
+        product_type: item.product_type || 'Generic',
+        batch: '',
+        expiry: '',
+        stock_qty: '',
+        purchase_cost_input: '',
       });
       setItemCategory(item.item_category || 'Medicine');
       setModalOpen(true);
@@ -302,7 +343,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-card">
         <div className="min-w-[260px] flex-1">
-          <Input label="Search Products" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, HSN, batch" />
+          <Input label="Search Products" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, batch, or supplier" />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Filter</label>
@@ -377,11 +418,23 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <tbody>
               {filtered.map((item, index) => {
                 const stock = getQuantityBreakdown(item.stock_qty, item.tablets_per_sheet, item.item_category);
+                const nameKey = String(item.name || '').trim().toUpperCase();
+                const batchCount = batchCountByName.get(nameKey) || 1;
                 return (
                 <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                  <td className="px-4 py-3 font-semibold text-slate-900 flex items-center">
-                    {getCategoryBadge(item.item_category || 'Medicine')}
-                    {item.name?.toUpperCase()}
+                  <td className="px-4 py-3 font-semibold text-slate-900">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {getCategoryBadge(item.item_category || 'Medicine')}
+                      <span>{item.name?.toUpperCase()}</span>
+                      {batchCount > 1 && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-700"
+                          title={`${batchCount} batches of this product`}
+                        >
+                          <Layers size={11} /> {batchCount} batches
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {item.item_category === 'Medicine' && item.product_type ? (
@@ -436,6 +489,19 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                               {line}
                             </div>
                           ))}
+                        </div>
+                      </div>
+                      <div className="group relative">
+                        <Button
+                          variant="secondary"
+                          className="px-3 py-2"
+                          onClick={() => openAddBatchModal(item)}
+                          title="Add another batch for this product"
+                        >
+                          <Copy size={14} />
+                        </Button>
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-1 hidden min-w-[180px] rounded-xl border border-slate-200 bg-slate-950 px-3 py-2 text-left text-xs font-semibold text-white shadow-2xl group-hover:block">
+                          Add another batch (same product, new batch/expiry/stock)
                         </div>
                       </div>
                       <Button variant="danger" className="px-3 py-2" onClick={() => remove(item.id)}>

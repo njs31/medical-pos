@@ -22,11 +22,11 @@ export function searchMedicines(query = '') {
     .prepare(`
       SELECT *
       FROM medicines
-      WHERE name LIKE ? OR hsn_code LIKE ? OR batch LIKE ?
-      ORDER BY name COLLATE NOCASE ASC
-      LIMIT 20
+      WHERE name LIKE ? OR hsn_code LIKE ? OR batch LIKE ? OR supplier_name LIKE ?
+      ORDER BY name COLLATE NOCASE ASC, expiry COLLATE NOCASE ASC
+      LIMIT 50
     `)
-    .all(term, term, term);
+    .all(term, term, term, term);
 }
 
 export function addMedicine(data) {

@@ -438,40 +438,58 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
           />
           {results.length > 0 && (
             <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-80 overflow-auto rounded-3xl border border-slate-100 bg-white/95 p-2 shadow-2xl backdrop-blur-xl">
-              {results.map((medicine) => (
-                <div
-                  key={medicine.id}
-                  className="group flex cursor-pointer items-center justify-between rounded-2xl p-4 transition-all hover:bg-blue-600 hover:shadow-lg active:scale-[0.99]"
-                  onClick={() => addItemFromInventory(medicine)}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 group-hover:bg-blue-500/20">
-                      <span className="text-lg font-black text-blue-600 group-hover:text-white">
-                        {medicine.name.charAt(0)}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="flex items-center">
-                        <span className="font-bold text-slate-900 group-hover:text-white">{medicine.name}</span>
-                        <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">
-                          {medicine.pack}
-                        </span>
+              {(() => {
+                const counts = results.reduce((acc, r) => {
+                  const k = String(r.name || '').trim().toUpperCase();
+                  acc[k] = (acc[k] || 0) + 1;
+                  return acc;
+                }, {});
+                return results.map((medicine) => {
+                  const isMultiBatch = counts[String(medicine.name || '').trim().toUpperCase()] > 1;
+                  return (
+                    <div
+                      key={medicine.id}
+                      className={`group flex cursor-pointer items-center justify-between rounded-2xl p-4 transition-all hover:bg-blue-600 hover:shadow-lg active:scale-[0.99] ${isMultiBatch ? 'border-l-4 border-l-indigo-300' : ''}`}
+                      onClick={() => addItemFromInventory(medicine)}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 group-hover:bg-blue-500/20">
+                          <span className="text-lg font-black text-blue-600 group-hover:text-white">
+                            {medicine.name.charAt(0)}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center">
+                            <span className="font-bold text-slate-900 group-hover:text-white">{medicine.name}</span>
+                            {medicine.pack ? (
+                              <span className="ml-2 rounded-lg bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500 group-hover:bg-blue-500/20 group-hover:text-blue-100">
+                                {medicine.pack}
+                              </span>
+                            ) : null}
+                            {isMultiBatch && (
+                              <span className="ml-2 rounded-lg bg-indigo-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-indigo-700 group-hover:bg-white/20 group-hover:text-white">
+                                Multi-batch
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-bold text-slate-400 group-hover:text-blue-100">
+                            Batch: <span className="text-slate-700 group-hover:text-white">{medicine.batch || '—'}</span> • Exp: {medicine.expiry}
+                            {medicine.supplier_name ? <span className="ml-1">• {medicine.supplier_name}</span> : null}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs font-bold text-slate-400 group-hover:text-blue-100">
-                        Batch: {medicine.batch} • Exp: {medicine.expiry}
+                      <div className="text-right">
+                        <div className="text-lg font-black text-blue-600 group-hover:text-white">
+                          {formatCurrency(medicine.mrp)}
+                        </div>
+                        <div className={`text-[10px] font-black uppercase tracking-wider ${medicine.stock_qty < 10 ? 'text-red-500 group-hover:text-red-200' : 'text-slate-400 group-hover:text-blue-100'}`}>
+                          Stock: {formatInventoryQty(medicine.stock_qty, medicine.tablets_per_sheet, medicine.item_category)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-black text-blue-600 group-hover:text-white">
-                      {formatCurrency(medicine.mrp)}
-                    </div>
-                    <div className={`text-[10px] font-black uppercase tracking-wider ${medicine.stock_qty < 10 ? 'text-red-500 group-hover:text-red-200' : 'text-slate-400 group-hover:text-blue-100'}`}>
-                      Stock: {formatInventoryQty(medicine.stock_qty, medicine.tablets_per_sheet, medicine.item_category)}
-                    </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                });
+              })()}
             </div>
           )}
         </div>
@@ -488,6 +506,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                 <th className="px-4 py-4">MRP</th>
                 <th className="px-4 py-4">Disc%</th>
                 <th className="px-4 py-4">Amount</th>
+                <th className="px-4 py-4">Profit</th>
                 <th className="px-4 py-4"></th>
               </tr>
             </thead>
@@ -589,6 +608,14 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                     {formatCurrency(totals.items[index]?.amount || 0)}
                   </td>
                   <td className="px-4 py-4">
+                    <div className={`font-bold ${Number(totals.items[index]?.profit) < 0 ? 'text-red-600' : Number(totals.items[index]?.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
+                      {formatCurrency(totals.items[index]?.profit || 0)}
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {Number(item.purchase_rate) > 0 ? `${Number(totals.items[index]?.profit_margin || 0).toFixed(1)}% margin` : 'No cost set'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
                     <button
                       className="rounded-full bg-red-50 p-2 text-red-500 opacity-0 transition group-hover:opacity-100 hover:bg-red-100"
                       onClick={() => removeItem(index)}
@@ -600,7 +627,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
               ))}
               {!bill.items.length && (
                 <tr>
-                  <td colSpan="9" className="py-20 text-center">
+                  <td colSpan="10" className="py-20 text-center">
                     <div className="mx-auto max-w-sm rounded-3xl border-2 border-dashed border-slate-100 p-12">
                       <div className="text-4xl mb-4 opacity-20">🛒</div>
                       <div className="text-sm font-bold text-slate-400">Search above or add a manual item to start billing</div>
@@ -635,6 +662,19 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                         </div>
                       </div>
                    </div>
+                </div>
+              </div>
+              <div className={`rounded-3xl border p-5 ${Number(totals.totalProfit) < 0 ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold uppercase tracking-widest text-slate-500">Estimated Profit</span>
+                  <div className="text-right">
+                    <span className={`text-2xl font-black ${Number(totals.totalProfit) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                      {formatCurrency(totals.totalProfit)}
+                    </span>
+                    <div className="mt-1 text-[10px] font-bold uppercase tracking-tighter text-slate-500">
+                      {Number(totals.totalProfitMargin).toFixed(1)}% margin • cost {formatCurrency(totals.totalCost)}
+                    </div>
+                  </div>
                 </div>
               </div>
            </div>

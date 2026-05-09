@@ -432,31 +432,44 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             />
             {results.length > 0 && (
               <div className="absolute z-20 mt-2 max-h-[400px] w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl scale-in-center">
-                {results.map((item) => (
-                  <button
-                    key={item.id}
-                    className="grid w-full grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-50 px-5 py-4 text-left text-sm transition hover:bg-blue-50"
-                    onClick={() => addItem(item)}
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 font-bold text-slate-900">
-                        <span>{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</span>
-                        <span
-                          className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600"
-                          title={item.product_type || 'Generic'}
-                        >
-                          {getProductTypeShortLabel(item.product_type)}
-                        </span>
-                      </div>
-                      <div className="text-[10px] uppercase tracking-wider text-slate-400">Batch: {item.batch}</div>
-                    </div>
-                    <div className="text-slate-600">Exp: {item.expiry}</div>
-                    <div className="text-slate-600">
-                      Qty: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
-                    </div>
-                    <div className="font-bold text-blue-600 text-right">{formatCurrency(item.mrp)}</div>
-                  </button>
-                ))}
+                {(() => {
+                  const counts = results.reduce((acc, r) => {
+                    const k = String(r.name || '').trim().toUpperCase();
+                    acc[k] = (acc[k] || 0) + 1;
+                    return acc;
+                  }, {});
+                  return results.map((item) => {
+                    const isMultiBatch = counts[String(item.name || '').trim().toUpperCase()] > 1;
+                    return (
+                      <button
+                        key={item.id}
+                        className={`grid w-full grid-cols-[2fr_1fr_1fr_1fr] gap-4 border-b border-slate-50 px-5 py-4 text-left text-sm transition hover:bg-blue-50 ${isMultiBatch ? 'border-l-4 border-l-indigo-300' : ''}`}
+                        onClick={() => addItem(item)}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 font-bold text-slate-900">
+                            <span>{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</span>
+                            <span
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600"
+                              title={item.product_type || 'Generic'}
+                            >
+                              {getProductTypeShortLabel(item.product_type)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 text-[10px] uppercase tracking-wider text-slate-400">
+                            Batch: <span className="font-bold text-slate-700">{item.batch || '—'}</span>
+                            {item.supplier_name ? <span className="ml-2 normal-case tracking-normal text-slate-400">• {item.supplier_name}</span> : null}
+                          </div>
+                        </div>
+                        <div className="text-slate-600">Exp: {item.expiry}</div>
+                        <div className="text-slate-600">
+                          Qty: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
+                        </div>
+                        <div className="font-bold text-blue-600 text-right">{formatCurrency(item.mrp)}</div>
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
@@ -466,7 +479,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-base font-black uppercase tracking-wide text-slate-700">
               <tr>
-                {['#', 'Product', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', ''].map((heading) => (
+                {['#', 'Product', 'Batch', 'Exp', 'Qty', 'MRP', 'Disc%', 'Amount', 'Profit', ''].map((heading) => (
                   <th key={heading} className="px-4 py-4">
                     {heading}
                   </th>
@@ -564,6 +577,14 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   </td>
                   <td className="px-4 py-4 font-bold text-slate-900">{formatCurrency(item.amount)}</td>
                   <td className="px-4 py-4">
+                    <div className={`font-bold ${Number(item.profit) < 0 ? 'text-red-600' : Number(item.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
+                      {formatCurrency(item.profit)}
+                    </div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      {Number(item.purchase_rate) > 0 ? `${Number(item.profit_margin).toFixed(1)}% margin` : 'No cost set'}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
                     <button
                       className="rounded-full bg-red-50 px-3 py-1 text-lg text-danger transition hover:bg-red-100"
                       onClick={() => removeItem(index)}
@@ -575,7 +596,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               ))}
               {!bill.items.length && (
                 <tr>
-                  <td colSpan="13" className="px-4 py-16 text-center">
+                  <td colSpan="14" className="px-4 py-16 text-center">
                     <div className="mx-auto max-w-md rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10">
                       <div className="text-lg font-bold text-slate-800">No products added yet</div>
                       <div className="mt-2 text-sm text-slate-500">
@@ -601,6 +622,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Discount</div>
               <div className="mt-1 text-2xl font-extrabold text-red-600">- {formatCurrency(totals.discountAmount)}</div>
+            </div>
+
+            <div className={`sm:col-span-2 rounded-2xl border p-4 ${Number(totals.totalProfit) < 0 ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Estimated Profit</div>
+              <div className={`mt-1 text-2xl font-extrabold ${Number(totals.totalProfit) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                {formatCurrency(totals.totalProfit)}
+                <span className="ml-2 text-xs font-bold text-slate-500">
+                  ({Number(totals.totalProfitMargin).toFixed(1)}% • cost {formatCurrency(totals.totalCost)})
+                </span>
+              </div>
             </div>
           </div>
 
