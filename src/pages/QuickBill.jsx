@@ -167,11 +167,20 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
   const [results, setResults] = useState([]);
 
   useEffect(() => {
-    if (search.trim().length > 1) {
-      window.api.medicines.search(search).then(setResults);
-    } else {
+    if (search.trim().length <= 1) {
       setResults([]);
+      return undefined;
     }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.api.medicines.search(search).then((rows) => {
+        if (!cancelled) setResults(rows);
+      });
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [search]);
 
   useEffect(() => {

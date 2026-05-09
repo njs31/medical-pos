@@ -102,6 +102,7 @@ function getPurchaseCostLines(item) {
 export default function Inventory({ toast, initialFilter = 'all' }) {
   const [medicines, setMedicines] = useState([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter, setFilter] = useState(initialFilter);
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
@@ -163,6 +164,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     setFilter(initialFilter);
   }, [initialFilter]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 120);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const batchCountByName = useMemo(() => {
     const counts = new Map();
     medicines.forEach((item) => {
@@ -174,10 +180,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   }, [medicines]);
 
   const filtered = useMemo(() => {
-    const term = search.toLowerCase();
+    const term = debouncedSearch.trim().toLowerCase();
     const result = medicines.filter((item) => {
-      const match =
-        item.name.toLowerCase().includes(term) ||
+      const match = !term ||
+        String(item.name || '').toLowerCase().includes(term) ||
         String(item.hsn_code || '').toLowerCase().includes(term) ||
         String(item.batch || '').toLowerCase().includes(term) ||
         String(item.supplier_name || '').toLowerCase().includes(term) ||
@@ -217,7 +223,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       return expA - expB;
     });
     return result;
-  }, [filter, medicines, search, sortDir, sortKey]);
+  }, [filter, medicines, debouncedSearch, sortDir, sortKey]);
 
   function openAddModal() {
     requireAuth(() => {
@@ -439,8 +445,13 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 const stock = getQuantityBreakdown(item.stock_qty, item.tablets_per_sheet, item.item_category);
                 const nameKey = String(item.name || '').trim().toUpperCase();
                 const batchCount = batchCountByName.get(nameKey) || 1;
+                const combinationTokens = parseCombinations(item.combination);
                 return (
-                <tr key={item.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                <tr
+                  key={item.id}
+                  className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}
+                  style={{ contentVisibility: 'auto', containIntrinsicSize: '64px' }}
+                >
                   <td className="px-4 py-3 font-semibold text-slate-900">
                     <div className="flex flex-wrap items-center gap-2">
                       {getCategoryBadge(item.item_category || 'Medicine')}
@@ -454,9 +465,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         </span>
                       )}
                     </div>
-                    {parseCombinations(item.combination).length > 0 && (
+                    {combinationTokens.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {parseCombinations(item.combination).map((token, tokenIdx) => (
+                        {combinationTokens.map((token, tokenIdx) => (
                           <button
                             key={`${item.id}-cmb-${tokenIdx}`}
                             type="button"

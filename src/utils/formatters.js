@@ -1,9 +1,31 @@
+const currencyFormatter = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 2,
+});
+
+const dateFormatterIst = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+  timeZone: 'Asia/Kolkata',
+});
+
+const dateFormatterLocal = new Intl.DateTimeFormat('en-IN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
+
+const timeFormatterIst = new Intl.DateTimeFormat('en-IN', {
+  timeZone: 'Asia/Kolkata',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: true,
+});
+
 export function formatCurrency(value = 0) {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 2,
-  }).format(Number(value || 0));
+  return currencyFormatter.format(Number(value || 0));
 }
 
 function formatPlainNumber(value = 0) {
@@ -34,53 +56,58 @@ function parseSqliteTimestampUtc(value) {
   ));
 }
 
+const formattedDateCache = new Map();
+const formattedTimeCache = new Map();
+
 export function formatDate(value) {
   if (!value) return '';
+  const cached = formattedDateCache.get(value);
+  if (cached !== undefined) return cached;
+
   const isoDate = parseIsoDateOnly(value);
+  let result;
   if (isoDate) {
-    return `${isoDate.day}/${isoDate.month}/${isoDate.year}`;
+    result = `${isoDate.day}/${isoDate.month}/${isoDate.year}`;
+  } else {
+    const sqliteDate = parseSqliteTimestampUtc(value);
+    if (sqliteDate) {
+      result = dateFormatterIst.format(sqliteDate);
+    } else {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        result = value;
+      } else {
+        result = dateFormatterLocal.format(date);
+      }
+    }
   }
 
-  const sqliteDate = parseSqliteTimestampUtc(value);
-  if (sqliteDate) {
-    return new Intl.DateTimeFormat('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      timeZone: 'Asia/Kolkata',
-    }).format(sqliteDate);
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(date);
+  if (formattedDateCache.size > 5000) formattedDateCache.clear();
+  formattedDateCache.set(value, result);
+  return result;
 }
 
 export function formatBillTime(value) {
   if (!value) return '';
+  const cached = formattedTimeCache.get(value);
+  if (cached !== undefined) return cached;
 
+  let result;
   const sqliteDate = parseSqliteTimestampUtc(value);
   if (sqliteDate) {
-    return new Intl.DateTimeFormat('en-IN', {
-      timeZone: 'Asia/Kolkata',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }).format(sqliteDate);
+    result = timeFormatterIst.format(sqliteDate);
+  } else {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      result = String(value);
+    } else {
+      result = timeFormatterIst.format(date);
+    }
   }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return new Intl.DateTimeFormat('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
+  if (formattedTimeCache.size > 5000) formattedTimeCache.clear();
+  formattedTimeCache.set(value, result);
+  return result;
 }
 
 export function todayIso() {
@@ -100,10 +127,15 @@ export function normalizeExpiry(expiry) {
   return `${formattedMonth}/${formattedYear}`;
 }
 
+const expiryCache = new Map();
 export function parseExpiry(expiry) {
-  const [month, year] = String(expiry || '').split('/').map(Number);
-  if (!month || !year) return null;
-  return new Date(2000 + year, month, 0);
+  const key = String(expiry || '');
+  if (expiryCache.has(key)) return expiryCache.get(key);
+  const [month, year] = key.split('/').map(Number);
+  const result = !month || !year ? null : new Date(2000 + year, month, 0);
+  if (expiryCache.size > 5000) expiryCache.clear();
+  expiryCache.set(key, result);
+  return result;
 }
 
 export function isExpired(expiry) {

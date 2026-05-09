@@ -184,20 +184,27 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     }
   }, [editBillId, isEditing, persistentBill]);
 
-  // Sync back to persistence on every change (only when not editing)
+  // Sync back to persistence (debounced — avoids double-rendering App on every keystroke)
   useEffect(() => {
-    if (!isEditing) setPersistentBill(bill);
+    if (isEditing) return undefined;
+    const timer = setTimeout(() => setPersistentBill(bill), 250);
+    return () => clearTimeout(timer);
   }, [bill, isEditing, setPersistentBill]);
 
   useEffect(() => {
     if (!search.trim()) {
       setResults([]);
-      return;
+      return undefined;
     }
+    let cancelled = false;
     const timer = setTimeout(async () => {
-      setResults(await window.api.medicines.search(search));
+      const rows = await window.api.medicines.search(search);
+      if (!cancelled) setResults(rows);
     }, 150);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [search]);
 
   const totals = useMemo(
