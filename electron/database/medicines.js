@@ -22,21 +22,25 @@ export function searchMedicines(query = '') {
     .prepare(`
       SELECT *
       FROM medicines
-      WHERE name LIKE ? OR hsn_code LIKE ? OR batch LIKE ? OR supplier_name LIKE ?
+      WHERE name LIKE ?
+         OR hsn_code LIKE ?
+         OR batch LIKE ?
+         OR supplier_name LIKE ?
+         OR combination LIKE ?
       ORDER BY name COLLATE NOCASE ASC, expiry COLLATE NOCASE ASC
       LIMIT 50
     `)
-    .all(term, term, term, term);
+    .all(term, term, term, term, term);
 }
 
 export function addMedicine(data) {
   const stmt = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type, combination
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type, @combination
     )
   `);
   const info = stmt.run(data);
@@ -62,7 +66,8 @@ export function updateMedicine(id, data) {
       supplier_name = @supplier_name,
       item_category = @item_category,
       rack_number = @rack_number,
-      product_type = @product_type
+      product_type = @product_type,
+      combination = @combination
     WHERE id = @id
   `).run({ ...data, id });
   return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(id);
@@ -81,10 +86,10 @@ export function importMedicines(rows) {
   const insert = getDb().prepare(`
     INSERT INTO medicines (
       name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type, combination
     ) VALUES (
       @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type, @combination
     )
   `);
   const tx = getDb().transaction((items) => items.forEach((item) => insert.run(item)));

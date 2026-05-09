@@ -427,7 +427,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
         <div className="relative">
           <div className="mb-4">
             <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Inventory Search & Items</div>
-            <h2 className="mt-1 text-xl font-extrabold text-slate-900 italic">🔍 Search product by name, batch, or HSN...</h2>
+            <h2 className="mt-1 text-xl font-extrabold text-slate-900 italic">🔍 Search by name, batch, supplier, or combination...</h2>
           </div>
           <input
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-lg font-semibold tracking-tight shadow-sm transition focus:border-blue-500 focus:bg-white outline-none"
@@ -476,6 +476,22 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                             Batch: <span className="text-slate-700 group-hover:text-white">{medicine.batch || '—'}</span> • Exp: {medicine.expiry}
                             {medicine.supplier_name ? <span className="ml-1">• {medicine.supplier_name}</span> : null}
                           </div>
+                          {String(medicine.combination || '').trim() && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {String(medicine.combination)
+                                .split(',')
+                                .map((t) => t.trim())
+                                .filter(Boolean)
+                                .map((token, tIdx) => (
+                                  <span
+                                    key={`qb-combo-${medicine.id}-${tIdx}`}
+                                    className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 group-hover:bg-white/20 group-hover:text-white"
+                                  >
+                                    {token}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-right">

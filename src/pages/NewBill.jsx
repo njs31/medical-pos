@@ -426,7 +426,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             <input
               type="text"
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
-              placeholder="🔍 Search product by name, batch, or HSN..."
+              placeholder="🔍 Search by name, batch, supplier, or combination (e.g. Paracetamol)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -460,6 +460,22 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                             Batch: <span className="font-bold text-slate-700">{item.batch || '—'}</span>
                             {item.supplier_name ? <span className="ml-2 normal-case tracking-normal text-slate-400">• {item.supplier_name}</span> : null}
                           </div>
+                          {String(item.combination || '').trim() && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {String(item.combination)
+                                .split(',')
+                                .map((t) => t.trim())
+                                .filter(Boolean)
+                                .map((token, tIdx) => (
+                                  <span
+                                    key={`bill-combo-${item.id}-${tIdx}`}
+                                    className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                                  >
+                                    {token}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
                         </div>
                         <div className="text-slate-600">Exp: {item.expiry}</div>
                         <div className="text-slate-600">

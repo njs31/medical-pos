@@ -153,7 +153,8 @@ export function initDatabase() {
       supplier_name TEXT,
       item_category TEXT DEFAULT 'Medicine',
       rack_number TEXT,
-      product_type TEXT DEFAULT 'Generic'
+      product_type TEXT DEFAULT 'Generic',
+      combination TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS suppliers (
@@ -262,6 +263,11 @@ export function initDatabase() {
   const hasProductType = medColumns.some((column) => column.name === 'product_type');
   if (!hasProductType) {
     db.exec(`ALTER TABLE medicines ADD COLUMN product_type TEXT DEFAULT 'Generic'`);
+  }
+
+  const hasCombination = medColumns.some((column) => column.name === 'combination');
+  if (!hasCombination) {
+    db.exec(`ALTER TABLE medicines ADD COLUMN combination TEXT DEFAULT ''`);
   }
   db.exec(`UPDATE medicines SET product_type = 'Generic' WHERE product_type IS NULL OR TRIM(product_type) = ''`);
   db.exec(`

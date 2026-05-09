@@ -312,6 +312,7 @@ function parseCsv(content) {
       item_category: item.item_category || item.category || 'Medicine',
       rack_number: item.rack_number || item.rack || '',
       product_type: item.product_type || item.generic_ethical || item.type || 'Generic',
+      combination: item.combination || item.composition || item.salt || '',
     };
   });
 }
@@ -333,6 +334,7 @@ function toCsv(rows) {
     'item_category',
     'rack_number',
     'product_type',
+    'combination',
   ];
   const lines = [headers.join(',')];
   rows.forEach((row) => {

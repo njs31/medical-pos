@@ -29,7 +29,15 @@ const initialForm = {
   item_category: 'Medicine',
   rack_number: '',
   product_type: 'Generic',
+  combination: '',
 };
+
+function parseCombinations(value) {
+  return String(value || '')
+    .split(',')
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
 
 function getCategoryBadge(category) {
   if (category === 'Medicine') return <span className="inline-flex items-center justify-center w-5 h-5 rounded text-xs font-bold bg-yellow-100 text-yellow-700 mr-2" title="Medicine">M</span>;
@@ -172,7 +180,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         item.name.toLowerCase().includes(term) ||
         String(item.hsn_code || '').toLowerCase().includes(term) ||
         String(item.batch || '').toLowerCase().includes(term) ||
-        String(item.supplier_name || '').toLowerCase().includes(term);
+        String(item.supplier_name || '').toLowerCase().includes(term) ||
+        String(item.combination || '').toLowerCase().includes(term);
       if (!match) return false;
       if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
       if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 90);
@@ -245,6 +254,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         item_category: item.item_category || 'Medicine',
         rack_number: item.rack_number || '',
         product_type: item.product_type || 'Generic',
+        combination: item.combination || '',
         batch: '',
         expiry: '',
         stock_qty: '',
@@ -283,6 +293,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         product_type: itemCategory === 'Medicine'
           ? String(form.product_type || 'Generic').trim() || 'Generic'
           : '',
+        combination: parseCombinations(form.combination).join(', '),
       };
 
       const itemType = itemCategory;
@@ -350,7 +361,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-4 rounded-2xl bg-white p-5 shadow-card">
         <div className="min-w-[260px] flex-1">
-          <Input label="Search Products" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, batch, or supplier" />
+          <Input label="Search Products" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name, batch, supplier, or combination" />
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Filter</label>
@@ -443,6 +454,21 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         </span>
                       )}
                     </div>
+                    {parseCombinations(item.combination).length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {parseCombinations(item.combination).map((token, tokenIdx) => (
+                          <button
+                            key={`${item.id}-cmb-${tokenIdx}`}
+                            type="button"
+                            className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 transition"
+                            title={`Show all medicines with ${token}`}
+                            onClick={() => setSearch(token)}
+                          >
+                            {token}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {item.item_category === 'Medicine' && item.product_type ? (
@@ -634,6 +660,30 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               </option>
             ))}
           </Input>
+
+          <div className="md:col-span-2">
+            <Input
+              label="Combination(s) — separate with commas"
+              value={form.combination || ''}
+              placeholder="e.g. Paracetamol 500, Caffeine 30"
+              onChange={(e) => setForm((prev) => ({ ...prev, combination: e.target.value }))}
+            />
+            {parseCombinations(form.combination).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {parseCombinations(form.combination).map((token, idx) => (
+                  <span
+                    key={`combo-preview-${idx}`}
+                    className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700"
+                  >
+                    {token}
+                  </span>
+                ))}
+                <span className="text-xs text-slate-400">
+                  Search by any of these to find alternative medicines.
+                </span>
+              </div>
+            )}
+          </div>
 
           {itemCategory === 'Medicine' && Number(form.tablets_per_sheet) > 0 && Number(form.stock_qty) > 0 && (
             <div className="md:col-span-2 rounded-lg bg-indigo-50 border border-indigo-200 px-4 py-3 text-sm text-indigo-800">
