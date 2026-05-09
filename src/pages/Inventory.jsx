@@ -6,6 +6,7 @@ import LoginModal from '@/components/ui/LoginModal';
 import Modal from '@/components/ui/Modal';
 import {
   formatCurrency,
+  formatDate,
   formatInventoryQty,
   getQuantityBreakdown,
   isExpired,
@@ -183,6 +184,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       if (sortKey === 'expiry') {
         const timeA = parseExpiry(a.expiry)?.getTime() || 0;
         const timeB = parseExpiry(b.expiry)?.getTime() || 0;
+        if (timeA !== timeB) return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      }
+      if (sortKey === 'created_at') {
+        const timeA = Date.parse(String(a.created_at || '').replace(' ', 'T') + 'Z') || 0;
+        const timeB = Date.parse(String(b.created_at || '').replace(' ', 'T') + 'Z') || 0;
         if (timeA !== timeB) return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
         return String(a.name || '').localeCompare(String(b.name || ''));
       }
@@ -407,6 +414,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   ['mrp', 'MRP'],
                   ['stock_qty', 'Stock Qty'],
                   ['supplier_name', 'Supplier'],
+                  ['created_at', 'Entry Date'],
                 ].map(([key, label]) => (
                   <th key={key} className="cursor-pointer px-4 py-3" onClick={() => changeSort(key)}>
                     {label}
@@ -470,6 +478,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <td className="px-4 py-3 truncate max-w-[150px]" title={item.supplier_name}>
                     {item.supplier_name?.[0] ? item.supplier_name : <span className="text-slate-300">—</span>}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-slate-600" title={item.created_at || ''}>
+                    {item.created_at ? formatDate(item.created_at) : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="group relative">
@@ -514,7 +525,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               })}
               {!filtered.length && (
                 <tr>
-                  <td colSpan="12" className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan="10" className="px-4 py-12 text-center text-slate-500">
                     No products found for the current filters.
                   </td>
                 </tr>
