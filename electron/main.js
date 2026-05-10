@@ -359,6 +359,8 @@ app.whenReady().then(() => {
     log.info('Creating main window...');
     createMainWindow();
     log.info('Main window created.');
+
+    autoUpdater.checkForUpdates().catch((e) => log.warn('update check failed', e));
   } catch (error) {
     log.error('Startup error:', error.message);
     log.error('Stack:', error.stack);
