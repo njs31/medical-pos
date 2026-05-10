@@ -179,16 +179,25 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     return counts;
   }, [medicines]);
 
+  const searchTokens = useMemo(
+    () => debouncedSearch.trim().toLowerCase().split(/\s+/).filter(Boolean),
+    [debouncedSearch],
+  );
+
   const filtered = useMemo(() => {
-    const term = debouncedSearch.trim().toLowerCase();
     const result = medicines.filter((item) => {
-      const match = !term ||
-        String(item.name || '').toLowerCase().includes(term) ||
-        String(item.hsn_code || '').toLowerCase().includes(term) ||
-        String(item.batch || '').toLowerCase().includes(term) ||
-        String(item.supplier_name || '').toLowerCase().includes(term) ||
-        String(item.combination || '').toLowerCase().includes(term);
-      if (!match) return false;
+      if (searchTokens.length > 0) {
+        const name = String(item.name || '').toLowerCase();
+        const haystack = [
+          name,
+          String(item.hsn_code || '').toLowerCase(),
+          String(item.batch || '').toLowerCase(),
+          String(item.supplier_name || '').toLowerCase(),
+          String(item.combination || '').toLowerCase(),
+        ].join(' || ');
+        const allMatch = searchTokens.every((token) => haystack.includes(token));
+        if (!allMatch) return false;
+      }
       if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
       if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 90);
       if (filter === 'expired') return isExpired(item.expiry);
@@ -223,7 +232,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       return expA - expB;
     });
     return result;
-  }, [filter, medicines, debouncedSearch, sortDir, sortKey]);
+  }, [filter, medicines, searchTokens, sortDir, sortKey]);
+
+  function matchedViaCombinationOnly(item) {
+    if (searchTokens.length === 0) return false;
+    const name = String(item.name || '').toLowerCase();
+    const combination = String(item.combination || '').toLowerCase();
+    return searchTokens.some((token) => combination.includes(token) && !name.includes(token));
+  }
 
   function openAddModal() {
     requireAuth(() => {
@@ -446,6 +462,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 const nameKey = String(item.name || '').trim().toUpperCase();
                 const batchCount = batchCountByName.get(nameKey) || 1;
                 const combinationTokens = parseCombinations(item.combination);
+                const viaCombination = matchedViaCombinationOnly(item);
                 return (
                 <tr
                   key={item.id}
@@ -462,6 +479,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                           title={`${batchCount} batches of this product`}
                         >
                           <Layers size={11} /> {batchCount} batches
+                        </span>
+                      )}
+                      {viaCombination && (
+                        <span
+                          className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800"
+                          title="This medicine matched your search via its combination/salt"
+                        >
+                          via combination
                         </span>
                       )}
                     </div>
@@ -563,7 +588,21 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               {!filtered.length && (
                 <tr>
                   <td colSpan="10" className="px-4 py-12 text-center text-slate-500">
-                    No products found for the current filters.
+                    {searchTokens.length > 0 ? (
+                      <>
+                        <div className="font-semibold text-slate-700">
+                          No products match "{debouncedSearch}".
+                        </div>
+                        <div className="mt-1 text-xs text-slate-500">
+                          Tip: Searching by combination only works if each medicine's
+                          <span className="font-semibold"> Combination(s) </span>
+                          field is filled in. Edit a medicine to add its salt(s),
+                          e.g. "Paracetamol 500, Caffeine 30".
+                        </div>
+                      </>
+                    ) : (
+                      'No products found for the current filters.'
+                    )}
                   </td>
                 </tr>
               )}

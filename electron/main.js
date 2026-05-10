@@ -480,11 +480,19 @@ ipcMain.handle('suppliers:add', async (_, supplier) => addSupplier(supplier));
 ipcMain.handle('suppliers:delete', async (_, id) => deleteSupplier(id));
 
 ipcMain.handle('updater:check', async () => {
+  if (!app.isPackaged) {
+    return { status: 'dev', message: 'Auto-update only works in the installed (packaged) build, not in dev mode.' };
+  }
   try {
-    return await autoUpdater.checkForUpdates();
+    const result = await autoUpdater.checkForUpdates();
+    const newVersion = result?.updateInfo?.version;
+    if (!newVersion || newVersion === app.getVersion()) {
+      return { status: 'no-update', currentVersion: app.getVersion() };
+    }
+    return { status: 'available', version: newVersion };
   } catch (error) {
     log.error('Update check failed:', error);
-    throw error;
+    return { status: 'error', message: error?.message || String(error) };
   }
 });
 

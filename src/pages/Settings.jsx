@@ -90,7 +90,21 @@ export default function Settings({ toast }) {
   async function checkUpdates() {
     setUpdateStatus((prev) => ({ ...prev, checking: true, error: null, available: null }));
     try {
-      await window.api.updater.checkForUpdates();
+      const result = await window.api.updater.checkForUpdates();
+      if (result?.status === 'available') {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, available: { version: result.version } }));
+        toast(`New update available: ${result.version}`);
+      } else if (result?.status === 'no-update') {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, available: false }));
+        toast('Software is up to date');
+      } else if (result?.status === 'dev') {
+        setUpdateStatus((prev) => ({ ...prev, checking: false, available: false, error: result.message }));
+        toast(result.message, 'error');
+      } else {
+        const msg = result?.message || 'Unknown error';
+        setUpdateStatus((prev) => ({ ...prev, checking: false, error: msg }));
+        toast(`Update check failed: ${msg}`, 'error');
+      }
     } catch (err) {
       setUpdateStatus((prev) => ({ ...prev, checking: false, error: err.message }));
       toast('Failed to check for updates', 'error');
