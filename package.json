@@ -1,6 +1,6 @@
 {
   "name": "pharmacy-pos",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Cross-platform offline Pharmacy POS and Inventory Management desktop app",
   "main": "out/main/main.js",
   "author": "OpenAI Codex",
