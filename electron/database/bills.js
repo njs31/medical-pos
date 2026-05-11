@@ -314,6 +314,8 @@ export function getSalesSummary(from, to) {
     SELECT
       bill_items.product_name as product_name,
       SUM(bill_items.qty) as qty,
+      COALESCE(MAX(bill_items.tablets_per_sheet), MAX(medicines.tablets_per_sheet), 0) as tablets_per_sheet,
+      COALESCE(MAX(bill_items.item_category), MAX(medicines.item_category), 'Medicine') as item_category,
       SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
       SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
       SUM(
@@ -357,6 +359,8 @@ export function getDayDetails(date) {
     SELECT
       bill_items.product_name as product_name,
       SUM(bill_items.qty) as qty,
+      COALESCE(MAX(bill_items.tablets_per_sheet), MAX(medicines.tablets_per_sheet), 0) as tablets_per_sheet,
+      COALESCE(MAX(bill_items.item_category), MAX(medicines.item_category), 'Medicine') as item_category,
       SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
       SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
       SUM(

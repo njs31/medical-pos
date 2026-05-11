@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import { formatCurrency, formatDate, todayIso } from '@/utils/formatters';
+import { formatBillQty, formatCurrency, formatDate, todayIso } from '@/utils/formatters';
 
 function InfoCard({ label, value, tone }) {
   const toneClass =
@@ -130,6 +130,11 @@ function MedicineProfitList({ items, emptyText }) {
     <ul className="space-y-2">
       {items.map((item, idx) => {
         const profit = Number(item.profit) || 0;
+        const qtyLabel = formatBillQty(
+          item.qty,
+          item.tablets_per_sheet,
+          item.item_category || 'Medicine',
+        );
         return (
           <li
             key={`${item.product_name}-${idx}`}
@@ -141,7 +146,7 @@ function MedicineProfitList({ items, emptyText }) {
                   {item.product_name}
                 </div>
                 <div className="mt-0.5 text-xs text-slate-500">
-                  Qty: {Number(item.qty) || 0}
+                  Qty: {qtyLabel}
                 </div>
               </div>
               <div className="text-right">
