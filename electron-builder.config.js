@@ -21,8 +21,12 @@ export default {
     icon: 'build/icon.png',
   },
   win: {
-    target: ['nsis'],
+    target: ['portable'],
     icon: 'build/icon.png',
+    artifactName: 'medicall.exe',
+  },
+  portable: {
+    artifactName: 'medicall.exe',
   },
   nsis: {
     oneClick: true,

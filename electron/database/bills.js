@@ -300,24 +300,44 @@ export function getSalesSummary(from, to) {
   `).get(params);
 
   const dayWise = getDb().prepare(`
-    SELECT date(date) as date, COALESCE(SUM(grand_total), 0) as sales
+    SELECT
+      date(bills.date) as date,
+      COALESCE(SUM(bills.grand_total), 0) as sales,
+      COUNT(DISTINCT bills.id) as bills
     FROM bills
-    WHERE date(date) BETWEEN date(@from) AND date(@to)
-    GROUP BY date(date)
-    ORDER BY date(date) ASC
+    WHERE date(bills.date) BETWEEN date(@from) AND date(@to)
+    GROUP BY date(bills.date)
+    ORDER BY date(bills.date) ASC
   `).all(params);
 
-  const topMedicines = getDb().prepare(`
-    SELECT product_name, SUM(qty) as qty, SUM(amount) as revenue
+  const items = getDb().prepare(`
+    SELECT
+      bill_items.product_name as product_name,
+      SUM(bill_items.qty) as qty,
+      SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
+      SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
+      SUM(
+        bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)
+        - bill_items.qty * COALESCE(medicines.purchase_rate, 0)
+      ) as profit
     FROM bill_items
     JOIN bills ON bills.id = bill_items.bill_id
+    LEFT JOIN medicines ON medicines.id = bill_items.medicine_id
     WHERE date(bills.date) BETWEEN date(@from) AND date(@to)
-    GROUP BY product_name
-    ORDER BY qty DESC, revenue DESC
-    LIMIT 10
+    GROUP BY bill_items.product_name
+    ORDER BY total_amount DESC, product_name ASC
   `).all(params);
 
-  return { totals, dayWise, topMedicines };
+  const totalProfit = items.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
+  totals.total_profit = totalProfit;
+
+  const topMedicines = items.slice(0, 10).map((item) => ({
+    product_name: item.product_name,
+    qty: item.qty,
+    revenue: item.total_amount,
+  }));
+
+  return { totals, dayWise, items, topMedicines };
 }
 
 export function getDayDetails(date) {
