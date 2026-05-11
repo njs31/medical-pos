@@ -13,6 +13,13 @@ Offline cross-platform Pharmacy POS and Inventory Management desktop application
 cd pharmacy-pos
 npm install
 npm run dev
+ npm run dist:win -- --publish always / npm run dist:mac -- --publish always
+npx electron-builder install-app-deps
+npm run dev 
+npm install
+rm -rf node_modules && npm install
+
+
 ```
 
 ## Build Desktop Packages
