@@ -32,6 +32,23 @@ const initialForm = {
   combination: '',
 };
 
+const initialBulkRow = {
+  name: '',
+  rack_number: '',
+  batch: '',
+  expiry: '',
+  mrp: '',
+  purchase_cost_input: '',
+  stock_qty: '',
+  tablets_per_sheet: '',
+  product_type: 'Generic',
+  combination: '',
+};
+
+function createBulkRows(count = 5) {
+  return Array.from({ length: count }, () => ({ ...initialBulkRow }));
+}
+
 function parseCombinations(value) {
   return String(value || '')
     .split(',')
@@ -79,6 +96,31 @@ function getStoredPurchaseRate(form, itemCategory) {
   return purchaseCostInput;
 }
 
+function buildMedicinePayload(form, itemCategory) {
+  return {
+    name: String(form.name || '').trim().toUpperCase(),
+    pack: String(form.pack || '').trim(),
+    hsn_code: '', // kept for db constraint
+    batch: String(form.batch || '').trim(),
+    expiry: normalizeExpiry(form.expiry),
+    mrp: Number(form.mrp || 0),
+    rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
+    purchase_rate: getStoredPurchaseRate(form, itemCategory),
+    stock_qty: Number(form.stock_qty || 0),
+    reorder_level: getLowStockThreshold(form.stock_qty),
+    sgst_percent: 0,
+    cgst_percent: 0,
+    tablets_per_sheet: itemCategory === 'Medicine' ? Number(form.tablets_per_sheet || 0) : 0,
+    supplier_name: form.supplier_name || '',
+    item_category: itemCategory,
+    rack_number: String(form.rack_number || '').trim(),
+    product_type: itemCategory === 'Medicine'
+      ? String(form.product_type || 'Generic').trim() || 'Generic'
+      : '',
+    combination: parseCombinations(form.combination).join(', '),
+  };
+}
+
 function getPurchaseCostLines(item) {
   const unitCost = Number(item.purchase_rate) || 0;
   const tabletsPerSheet = Number(item.tablets_per_sheet) || 0;
@@ -107,7 +149,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [sortKey, setSortKey] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [modalOpen, setModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
+  const [bulkRows, setBulkRows] = useState(() => createBulkRows());
+  const [bulkSupplierName, setBulkSupplierName] = useState('');
+  const [bulkItemCategory, setBulkItemCategory] = useState('Medicine');
+  const [bulkSaving, setBulkSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [itemCategory, setItemCategory] = useState('Medicine');
   const [suppliers, setSuppliers] = useState([]);
@@ -250,6 +297,15 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
   }
 
+  function openBulkModal() {
+    requireAuth(() => {
+      setBulkRows(createBulkRows());
+      setBulkSupplierName('');
+      setBulkItemCategory('Medicine');
+      setBulkModalOpen(true);
+    });
+  }
+
   function openEditModal(item) {
     requireAuth(() => {
       setEditingId(item.id);
@@ -261,6 +317,74 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       setItemCategory(item.item_category || 'Medicine');
       setModalOpen(true);
     });
+  }
+
+  function updateBulkRow(index, changes) {
+    setBulkRows((rows) => rows.map((row, rowIndex) => (
+      rowIndex === index ? { ...row, ...changes } : row
+    )));
+  }
+
+  function removeBulkRow(index) {
+    setBulkRows((rows) => rows.length === 1 ? createBulkRows(1) : rows.filter((_, rowIndex) => rowIndex !== index));
+  }
+
+  function addBulkRows(count = 1) {
+    setBulkRows((rows) => [...rows, ...createBulkRows(count)]);
+  }
+
+  function getFilledBulkRows() {
+    return bulkRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => Object.values(row).some((value) => String(value ?? '').trim() !== ''));
+  }
+
+  async function submitBulk() {
+    const filledRows = getFilledBulkRows();
+
+    if (!filledRows.length) {
+      toast('Add at least one product row', 'error');
+      return;
+    }
+
+    const invalidRow = filledRows.find(({ row }) => (
+      !String(row.name || '').trim()
+      || Number(row.mrp || 0) <= 0
+      || Number(row.purchase_cost_input || 0) <= 0
+      || Number(row.stock_qty || 0) <= 0
+    ));
+
+    if (invalidRow) {
+      toast(`Row ${invalidRow.index + 1}: product name, MRP, purchase cost, and stock quantity are required`, 'error');
+      return;
+    }
+
+    setBulkSaving(true);
+    try {
+      const payloads = filledRows.map(({ row }) => buildMedicinePayload(
+        {
+          ...initialForm,
+          ...row,
+          supplier_name: bulkSupplierName,
+          item_category: bulkItemCategory,
+          tablets_per_sheet: bulkItemCategory === 'Medicine' ? row.tablets_per_sheet : 0,
+        },
+        bulkItemCategory,
+      ));
+
+      await window.api.medicines.addMany(payloads);
+      toast(`${payloads.length} products added successfully`);
+      setBulkModalOpen(false);
+      setBulkRows(createBulkRows());
+      setBulkSupplierName('');
+      setBulkItemCategory('Medicine');
+      await load();
+    } catch (error) {
+      toast(error?.message || 'Unable to save bulk stock', 'error');
+      console.error('Bulk stock save failed:', error);
+    } finally {
+      setBulkSaving(false);
+    }
   }
 
   function openAddBatchModal(item) {
@@ -295,28 +419,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     }
 
     try {
-      const payload = {
-        name: String(form.name || '').trim().toUpperCase(),
-        pack: String(form.pack || '').trim(),
-        hsn_code: '', // kept for db constraint
-        batch: String(form.batch || '').trim(),
-        expiry: normalizeExpiry(form.expiry),
-        mrp: Number(form.mrp || 0),
-        rate: Number(form.mrp || 0), // Default rate to MRP since Rate is removed from UI
-        purchase_rate: getStoredPurchaseRate(form, itemCategory),
-        stock_qty: Number(form.stock_qty || 0),
-        reorder_level: getLowStockThreshold(form.stock_qty),
-        sgst_percent: 0,
-        cgst_percent: 0,
-        tablets_per_sheet: itemCategory === 'Medicine' ? Number(form.tablets_per_sheet || 0) : 0,
-        supplier_name: form.supplier_name || '',
-        item_category: itemCategory,
-        rack_number: String(form.rack_number || '').trim(),
-        product_type: itemCategory === 'Medicine'
-          ? String(form.product_type || 'Generic').trim() || 'Generic'
-          : '',
-        combination: parseCombinations(form.combination).join(', '),
-      };
+      const payload = buildMedicinePayload(form, itemCategory);
 
       const itemType = itemCategory;
 
@@ -429,6 +532,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </Button>
           <Button onClick={openAddModal}>
             <Plus size={16} className="mr-2" /> Add Stock
+          </Button>
+          <Button variant="success" onClick={openBulkModal}>
+            <Layers size={16} className="mr-2" /> Bulk Add Stock
           </Button>
         </div>
       </div>
@@ -753,6 +859,198 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           )}
         </form>
 
+      </Modal>
+
+      <Modal
+        open={bulkModalOpen}
+        title="Bulk Add Stock"
+        size="max-w-7xl"
+        onClose={() => { if (!bulkSaving) setBulkModalOpen(false); }}
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-slate-500">
+              {getFilledBulkRows().length} product rows ready
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" disabled={bulkSaving} onClick={() => setBulkModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={bulkSaving} onClick={submitBulk}>
+                {bulkSaving ? 'Saving...' : 'Add All Products'}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
+            <Input
+              as="select"
+              label="Supplier"
+              value={bulkSupplierName}
+              onChange={(e) => setBulkSupplierName(e.target.value)}
+            >
+              <option value="">Select Supplier</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </Input>
+            <Input
+              as="select"
+              label="Category"
+              value={bulkItemCategory}
+              onChange={(e) => setBulkItemCategory(e.target.value)}
+            >
+              <option value="Medicine">Medicine</option>
+              <option value="General">General</option>
+              <option value="Surgical">Surgical</option>
+            </Input>
+            <div className="flex items-end gap-2">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => addBulkRows(1)}>
+                <Plus size={16} className="mr-2" /> Add Row
+              </Button>
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => addBulkRows(5)}>
+                <Plus size={16} className="mr-2" /> Add 5 Rows
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="min-w-[1180px] text-sm">
+              <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 w-10">#</th>
+                  <th className="px-3 py-2 min-w-[190px]">Product Name *</th>
+                  <th className="px-3 py-2 min-w-[95px]">Rack</th>
+                  <th className="px-3 py-2 min-w-[120px]">Batch</th>
+                  <th className="px-3 py-2 min-w-[110px]">Expiry</th>
+                  <th className="px-3 py-2 min-w-[110px]">MRP *</th>
+                  <th className="px-3 py-2 min-w-[140px]">Purchase Cost *</th>
+                  <th className="px-3 py-2 min-w-[110px]">Stock *</th>
+                  {bulkItemCategory === 'Medicine' && (
+                    <>
+                      <th className="px-3 py-2 min-w-[120px]">Tabs/Sheet</th>
+                      <th className="px-3 py-2 min-w-[110px]">Type</th>
+                    </>
+                  )}
+                  <th className="px-3 py-2 min-w-[210px]">Combination</th>
+                  <th className="px-3 py-2 w-14"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {bulkRows.map((row, index) => (
+                  <tr key={`bulk-row-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                    <td className="px-3 py-2 font-semibold text-slate-500">{index + 1}</td>
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.name}
+                        onChange={(e) => updateBulkRow(index, { name: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.rack_number}
+                        onChange={(e) => updateBulkRow(index, { rack_number: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.batch}
+                        onChange={(e) => updateBulkRow(index, { batch: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="MM/YY"
+                        value={row.expiry}
+                        onChange={(e) => updateBulkRow(index, { expiry: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.mrp}
+                        onChange={(e) => updateBulkRow(index, { mrp: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.purchase_cost_input}
+                        onChange={(e) => updateBulkRow(index, { purchase_cost_input: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.stock_qty}
+                        onChange={(e) => updateBulkRow(index, { stock_qty: e.target.value })}
+                      />
+                    </td>
+                    {bulkItemCategory === 'Medicine' && (
+                      <>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            value={row.tablets_per_sheet}
+                            onChange={(e) => updateBulkRow(index, { tablets_per_sheet: e.target.value })}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            value={row.product_type || 'Generic'}
+                            onChange={(e) => updateBulkRow(index, { product_type: e.target.value })}
+                          >
+                            <option value="Generic">Generic</option>
+                            <option value="Ethical">Ethical</option>
+                          </select>
+                        </td>
+                      </>
+                    )}
+                    <td className="px-3 py-2">
+                      <input
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        placeholder="Salt names"
+                        value={row.combination}
+                        onChange={(e) => updateBulkRow(index, { combination: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Button
+                        type="button"
+                        variant="danger"
+                        className="px-3 py-2"
+                        onClick={() => removeBulkRow(index)}
+                        title="Remove row"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </Modal>
 
       {/* Login Modal */}

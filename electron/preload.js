@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('api', {
     getAll: () => ipcRenderer.invoke('medicines:getAll'),
     search: (query) => ipcRenderer.invoke('medicines:search', query),
     add: (data) => ipcRenderer.invoke('medicines:add', data),
+    addMany: (rows) => ipcRenderer.invoke('medicines:addMany', rows),
     update: (id, data) => ipcRenderer.invoke('medicines:update', id, data),
     delete: (id) => ipcRenderer.invoke('medicines:delete', id),
     adjustStock: (id, qty) => ipcRenderer.invoke('medicines:adjustStock', id, qty),

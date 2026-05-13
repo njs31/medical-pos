@@ -47,6 +47,21 @@ export function addMedicine(data) {
   return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(info.lastInsertRowid);
 }
 
+export function addMedicines(rows) {
+  const insert = getDb().prepare(`
+    INSERT INTO medicines (
+      name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
+      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type, combination
+    ) VALUES (
+      @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
+      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type, @combination
+    )
+  `);
+  const tx = getDb().transaction((items) => items.forEach((item) => insert.run(item)));
+  tx(rows);
+  return getAllMedicines();
+}
+
 export function updateMedicine(id, data) {
   getDb().prepare(`
     UPDATE medicines SET
@@ -83,16 +98,5 @@ export function adjustMedicineStock(id, qty) {
 }
 
 export function importMedicines(rows) {
-  const insert = getDb().prepare(`
-    INSERT INTO medicines (
-      name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
-      sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet, supplier_name, item_category, rack_number, product_type, combination
-    ) VALUES (
-      @name, @pack, @hsn_code, @batch, @expiry, @mrp, @rate, @purchase_rate,
-      @sgst_percent, @cgst_percent, @stock_qty, @reorder_level, @tablets_per_sheet, @supplier_name, @item_category, @rack_number, @product_type, @combination
-    )
-  `);
-  const tx = getDb().transaction((items) => items.forEach((item) => insert.run(item)));
-  tx(rows);
-  return getAllMedicines();
+  return addMedicines(rows);
 }

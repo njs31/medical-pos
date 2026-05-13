@@ -21,9 +21,8 @@ export default {
     icon: 'build/icon.png',
   },
   win: {
-    target: ['portable'],
+    target: ['nsis', 'portable'],
     icon: 'build/icon.png',
-    artifactName: 'medicall.exe',
   },
   portable: {
     artifactName: 'medicall.exe',
@@ -33,6 +32,7 @@ export default {
     perMachine: true,
     allowToChangeInstallationDirectory: false,
     deleteAppDataOnUninstall: false,
+    artifactName: 'Pharmacy-POS-Setup-${version}.exe',
   },
   publish: {
     provider: 'github',

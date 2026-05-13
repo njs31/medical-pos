@@ -20,6 +20,7 @@ import {
 import { initDatabase, closeDatabase, getDb } from './database/db.js';
 import {
   addMedicine,
+  addMedicines,
   adjustMedicineStock,
   deleteMedicine,
   getAllMedicines,
@@ -384,6 +385,7 @@ app.on('window-all-closed', () => {
 ipcMain.handle('medicines:getAll', async () => getAllMedicines());
 ipcMain.handle('medicines:search', async (_, query) => searchMedicines(query));
 ipcMain.handle('medicines:add', async (_, data) => addMedicine(data));
+ipcMain.handle('medicines:addMany', async (_, rows) => addMedicines(rows));
 ipcMain.handle('medicines:update', async (_, id, data) => updateMedicine(id, data));
 ipcMain.handle('medicines:delete', async (_, id) => deleteMedicine(id));
 ipcMain.handle('medicines:adjustStock', async (_, id, qty) => adjustMedicineStock(id, qty));
