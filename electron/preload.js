@@ -29,6 +29,16 @@ contextBridge.exposeInMainWorld('api', {
     getStockReport: () => ipcRenderer.invoke('reports:stock'),
     getDayDetails: (date) => ipcRenderer.invoke('reports:dayDetails', date),
   },
+  emergencyBills: {
+    create: (data) => ipcRenderer.invoke('emergencyBills:create', data),
+    update: (id, data) => ipcRenderer.invoke('emergencyBills:update', id, data),
+    getAll: (filters) => ipcRenderer.invoke('emergencyBills:getAll', filters),
+    getById: (id) => ipcRenderer.invoke('emergencyBills:getById', id),
+    delete: (id) => ipcRenderer.invoke('emergencyBills:delete', id),
+    print: (id) => ipcRenderer.invoke('emergencyBills:print', id),
+    printRaw: (billData) => ipcRenderer.invoke('emergencyBills:printRaw', billData),
+    previewNextNumbers: () => ipcRenderer.invoke('emergencyBills:previewNextNumbers'),
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (data) => ipcRenderer.invoke('settings:save', data),

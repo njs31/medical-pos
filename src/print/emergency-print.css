@@ -1,0 +1,29 @@
+@page emergency-bill {
+  size: A5 landscape;
+  margin: 8mm 10mm;
+}
+
+.emergency-print-root {
+  page: emergency-bill;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
+
+  .emergency-print-page {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .emergency-print-root {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    padding: 2mm 4mm !important;
+  }
+}

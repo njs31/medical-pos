@@ -201,6 +201,34 @@ export function initDatabase() {
       discount REAL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS emergency_bills (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bill_no TEXT,
+      doctor_name TEXT,
+      patient_name TEXT,
+      father_guardian_name TEXT,
+      reg_no TEXT,
+      reg_date TEXT,
+      reg_time TEXT,
+      sex TEXT,
+      age_years INTEGER DEFAULT 0,
+      age_months INTEGER DEFAULT 0,
+      age_days INTEGER DEFAULT 0,
+      paid_amount REAL DEFAULT 0,
+      due_amount REAL DEFAULT 0,
+      discount_amount REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS emergency_bill_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      bill_id INTEGER REFERENCES emergency_bills(id) ON DELETE CASCADE,
+      service_name TEXT,
+      rate REAL DEFAULT 0,
+      discount REAL DEFAULT 0,
+      paid_amount REAL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS shop_settings (
       id INTEGER PRIMARY KEY DEFAULT 1,
       shop_name TEXT,

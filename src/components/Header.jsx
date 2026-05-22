@@ -19,6 +19,8 @@ const titles = {
   settings: 'Settings',
   'quick-bill': '⚡ Quick Bill',
   'quick-history': 'Quick History',
+  'emergency-bill': 'Emergency Bill',
+  'emergency-history': 'Emergency History',
 };
 
 const navItems = [
@@ -29,6 +31,8 @@ const navItems = [
   { key: 'reports', label: 'Reports', icon: ClipboardList },
   { key: 'quick-bill', label: 'Quick Bill', icon: FilePlus2 },
   { key: 'quick-history', label: 'Quick History', icon: History },
+  { key: 'emergency-bill', label: 'Emergency Bill', icon: FilePlus2 },
+  { key: 'emergency-history', label: 'Emergency History', icon: FileClock },
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 

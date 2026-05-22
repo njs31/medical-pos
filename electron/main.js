@@ -29,6 +29,14 @@ import {
   updateMedicine,
 } from './database/medicines.js';
 import { getSettings, saveSettings } from './database/settings.js';
+import {
+  createEmergencyBill,
+  deleteEmergencyBill,
+  getEmergencyBillById,
+  getEmergencyBills,
+  previewNextEmergencyNumbers,
+  updateEmergencyBill,
+} from './database/emergencyBills.js';
 import { getAllSuppliers, addSupplier, deleteSupplier } from './database/suppliers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -88,19 +96,32 @@ function createMainWindow() {
   });
 }
 
+function isEmergencyBillPayload(bill) {
+  return bill?.bill_type === 'emergency';
+}
+
 async function printBill(billIdOrData) {
   let bill;
   let isRaw = false;
+  let isEmergency = false;
+
   if (typeof billIdOrData === 'object' && billIdOrData !== null) {
     bill = billIdOrData;
     isRaw = true;
+    isEmergency = isEmergencyBillPayload(bill);
   } else {
     bill = getBillById(billIdOrData);
+    if (!bill) {
+      bill = getEmergencyBillById(billIdOrData);
+      isEmergency = Boolean(bill);
+    }
   }
 
+  const printRef = isRaw ? 'raw' : billIdOrData;
+  const printPath = isEmergency ? `print/emergency/${printRef}` : `print/${printRef}`;
   const targetUrl = isDev
-    ? `http://localhost:5173/#/print/${isRaw ? 'raw' : billIdOrData}`
-    : `file://${getRendererIndexPath()}#/print/${isRaw ? 'raw' : billIdOrData}`;
+    ? `http://localhost:5173/#/${printPath}`
+    : `file://${getRendererIndexPath()}#/${printPath}`;
 
   const printWindow = new BrowserWindow({
     width: 900,
@@ -120,7 +141,11 @@ async function printBill(billIdOrData) {
   if (isRaw) {
     const settings = getSettings();
     await printWindow.webContents.executeJavaScript(`
-      window.__PRINT_DATA__ = ${JSON.stringify({ ...bill, settings })};
+      window.__PRINT_DATA__ = ${JSON.stringify({
+        ...bill,
+        bill_type: isEmergency ? 'emergency' : bill?.bill_type,
+        settings,
+      })};
     `);
   }
 
@@ -467,6 +492,18 @@ ipcMain.handle('bills:getForEdit', async (_, id) => getBillForEdit(id));
 ipcMain.handle('bills:delete', async (_, id) => deleteBill(id));
 ipcMain.handle('bills:print', async (_, id) => printBill(id));
 ipcMain.handle('bills:printRaw', async (_, billData) => printBill(billData));
+
+ipcMain.handle('emergencyBills:create', async (_, data) => createEmergencyBill(data));
+ipcMain.handle('emergencyBills:update', async (_, id, data) => updateEmergencyBill(id, data));
+ipcMain.handle('emergencyBills:getAll', async (_, filters) => getEmergencyBills(filters));
+ipcMain.handle('emergencyBills:getById', async (_, id) => getEmergencyBillById(id));
+ipcMain.handle('emergencyBills:delete', async (_, id) => deleteEmergencyBill(id));
+ipcMain.handle('emergencyBills:print', async (_, id) => printBill(id));
+ipcMain.handle('emergencyBills:printRaw', async (_, billData) =>
+  printBill({ ...billData, bill_type: 'emergency' }),
+);
+ipcMain.handle('emergencyBills:previewNextNumbers', async () => previewNextEmergencyNumbers());
+
 ipcMain.handle('bills:getNextInvoiceNo', async () => previewNextInvoiceNo());
 ipcMain.handle('dashboard:summary', async () => getDashboardSummary());
 

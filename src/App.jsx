@@ -3,6 +3,9 @@ import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import { ToastStack } from '@/components/ui/Toast';
 import BillTemplate from '@/print/BillTemplate';
+import EmergencyBillTemplate from '@/print/EmergencyBillTemplate';
+import EmergencyBill from '@/pages/EmergencyBill';
+import EmergencyBillHistory from '@/pages/EmergencyBillHistory';
 import BillHistory from '@/pages/BillHistory';
 import Dashboard from '@/pages/Dashboard';
 import Inventory from '@/pages/Inventory';
@@ -42,7 +45,9 @@ export default function App() {
   const [shopSettings, setShopSettings] = useState(null);
 
   const isPrintRoute = route.startsWith('print/');
-  const printBillId = isPrintRoute ? route.split('/')[1] : null;
+  const printParts = isPrintRoute ? route.split('/') : [];
+  const isEmergencyPrint = printParts[1] === 'emergency';
+  const printBillId = isPrintRoute ? (isEmergencyPrint ? printParts[2] : printParts[1]) : null;
 
   function toast(message, type = 'success') {
     const id = Date.now() + Math.random();
@@ -72,10 +77,12 @@ export default function App() {
         }
       };
       checkData();
+    } else if (isEmergencyPrint) {
+      window.api.emergencyBills.getById(Number(printBillId)).then(setPrintBill);
     } else {
       window.api.bills.getById(Number(printBillId)).then(setPrintBill);
     }
-  }, [printBillId]);
+  }, [printBillId, isEmergencyPrint]);
 
   function navigate(page, state = {}) {
     setPageState(state);
@@ -124,11 +131,34 @@ export default function App() {
     if (route === 'quick-history') {
       return <QuickBillHistory toast={toast} onNavigate={navigate} />;
     }
+    if (route === 'emergency-bill') {
+      return (
+        <EmergencyBill
+          toast={toast}
+          shopSettings={shopSettings}
+          editBillId={pageState.editBillId || null}
+          onNavigate={navigate}
+        />
+      );
+    }
+    if (route === 'emergency-history') {
+      return <EmergencyBillHistory toast={toast} onNavigate={navigate} />;
+    }
     return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
   }, [dashboardSummary, pageState.filter, pageState.editBillId, route, persistentBill, shopSettings]);
 
   if (isPrintRoute) {
-    return <div className="print-page">{printBill ? <BillTemplate bill={printBill} /> : null}</div>;
+    const isEmergencyBill =
+      isEmergencyPrint || printBill?.bill_type === 'emergency';
+    return (
+      <div className={isEmergencyBill ? 'print-page emergency-print-page' : 'print-page'}>
+        {printBill
+          ? isEmergencyBill
+            ? <EmergencyBillTemplate bill={printBill} />
+            : <BillTemplate bill={printBill} />
+          : null}
+      </div>
+    );
   }
 
   return (
