@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { exportAllData, getExportCounts } from '../database/export.js';
 import { getSettings, saveSettings } from '../database/settings.js';
+import { readTokenFromCliCommand, validateSpacetimeToken } from './spacetimeCli.js';
 
 const DEFAULT_HOST = 'https://maincloud.spacetimedb.com';
 
@@ -19,7 +20,13 @@ export async function backupToSpacetimeDB() {
   const settings = getSettings();
   const host = normalizeHost(settings?.spacetime_host);
   const database = String(settings?.spacetime_database || '').trim();
-  const token = String(settings?.spacetime_token || '').trim();
+  const tokenCheck = validateSpacetimeToken(settings?.spacetime_token);
+
+  if (!tokenCheck.ok) {
+    return { success: false, message: tokenCheck.message };
+  }
+
+  const token = tokenCheck.token;
 
   if (!database) {
     return {
@@ -37,9 +44,7 @@ export async function backupToSpacetimeDB() {
   const headers = {
     'Content-Type': 'application/json',
   };
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
+  headers.Authorization = `Bearer ${token}`;
 
   let response;
   try {
@@ -81,4 +86,28 @@ export async function backupToSpacetimeDB() {
     database,
     counts: getExportCounts(snapshot),
   };
+}
+
+export function loadSpacetimeTokenFromCli() {
+  const token = readTokenFromCliCommand();
+  if (!token) {
+    return {
+      success: false,
+      message: 'No token found. Run: spacetime login then spacetime login show --token',
+    };
+  }
+
+  const check = validateSpacetimeToken(token);
+  if (!check.ok) {
+    return { success: false, message: check.message };
+  }
+
+  const settings = getSettings();
+  saveSettings({
+    ...settings,
+    spacetime_host: settings?.spacetime_host || DEFAULT_HOST,
+    spacetime_token: check.token,
+  });
+
+  return { success: true, message: 'Token loaded from Spacetime CLI and saved.' };
 }

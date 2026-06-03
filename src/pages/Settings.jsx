@@ -215,6 +215,7 @@ export default function Settings({ toast }) {
         <h2 className="mb-1 text-lg font-bold text-slate-900">Cloud Backup (SpacetimeDB)</h2>
         <p className="mb-4 text-sm text-slate-500">
           Configure once, then use the cloud icon in the top-right header to upload a full data snapshot.
+          Use the JWT from <code className="text-xs">spacetime login show --token</code> (starts with eyJ…), not the identity hex from <code className="text-xs">spacetime login show</code>.
         </p>
         <div className="grid gap-4 md:grid-cols-2">
           <Input
@@ -229,14 +230,30 @@ export default function Settings({ toast }) {
             onChange={(e) => setForm((prev) => ({ ...prev, spacetime_database: e.target.value }))}
             placeholder="medical-pos-backup"
           />
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 space-y-2">
             <Input
               label="Bearer Token"
               type="password"
               value={form.spacetime_token}
               onChange={(e) => setForm((prev) => ({ ...prev, spacetime_token: e.target.value }))}
-              placeholder="SpacetimeDB auth token"
+              placeholder="eyJ... (from spacetime login show --token)"
             />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                const result = await window.api.backup.loadTokenFromCli();
+                if (result?.success) {
+                  const data = await window.api.settings.get();
+                  setForm((prev) => ({ ...prev, ...data }));
+                  toast(result.message || 'Token loaded from CLI');
+                } else {
+                  toast(result?.message || 'Could not load token', 'error');
+                }
+              }}
+            >
+              Load token from Spacetime CLI
+            </Button>
           </div>
         </div>
       </section>

@@ -13,7 +13,13 @@ curl -sSf https://install.spacetimedb.com | sh
 Then restart your terminal and run `spacetime version`.
 
 2. Log in: `spacetime login`
-3. From this folder, publish the module:
+3. Get your **auth token** (must start with `eyJ` — not the identity hex):
+
+```bash
+spacetime login show --token
+```
+
+4. From this folder, publish the module:
 
 ```bash
 cd spacetimedb
@@ -21,10 +27,10 @@ npm install
 spacetime publish medical-pos-backup --project-path .
 ```
 
-4. In the app, open **Settings → Cloud Backup** and set:
+5. In the app, open **Settings → Cloud Backup** and set:
    - **Host:** `https://maincloud.spacetimedb.com` (default)
    - **Database name:** `medical-pos-backup` (same name used in publish)
-   - **Token:** your SpacetimeDB bearer token (from `spacetime login` or the dashboard)
+   - **Token:** paste the `eyJ...` JWT from step 3, or click **Load token from Spacetime CLI**
 
 ## Restore data
 
