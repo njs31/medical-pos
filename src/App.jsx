@@ -43,6 +43,7 @@ export default function App() {
   const [printBill, setPrintBill] = useState(null);
   const [persistentBill, setPersistentBill] = useState(null);
   const [shopSettings, setShopSettings] = useState(null);
+  const [backingUp, setBackingUp] = useState(false);
 
   const isPrintRoute = route.startsWith('print/');
   const printParts = isPrintRoute ? route.split('/') : [];
@@ -87,6 +88,25 @@ export default function App() {
   function navigate(page, state = {}) {
     setPageState(state);
     setRoute(page);
+  }
+
+  async function handleCloudBackup() {
+    setBackingUp(true);
+    try {
+      const result = await window.api.backup.toSpacetime();
+      if (result?.success) {
+        const { counts } = result;
+        toast(
+          `Backup saved to SpacetimeDB (${counts.medicines} medicines, ${counts.bills} bills, ${counts.emergency_bills} emergency bills)`,
+        );
+      } else {
+        toast(result?.message || 'Backup failed', 'error');
+      }
+    } catch (error) {
+      toast(error?.message || 'Backup failed', 'error');
+    } finally {
+      setBackingUp(false);
+    }
   }
 
   const content = useMemo(() => {
@@ -166,7 +186,12 @@ export default function App() {
       <div className="app-shell min-h-screen bg-content">
         <Sidebar />
         <div className="ml-[24px] min-h-screen">
-          <Header page={route} onQuickAction={navigate} onNavigate={navigate} />
+          <Header
+            page={route}
+            onNavigate={navigate}
+            onBackup={handleCloudBackup}
+            backingUp={backingUp}
+          />
           <main className="p-8">{content}</main>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import {
   ClipboardList,
+  CloudUpload,
   FileClock,
   FilePlus2,
   LayoutDashboard,
@@ -36,7 +37,7 @@ const navItems = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-export default function Header({ page, onQuickAction, onNavigate }) {
+export default function Header({ page, onNavigate, onBackup, backingUp = false }) {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-8 py-5 backdrop-blur">
       <div className="flex items-start justify-between gap-6">
@@ -44,6 +45,20 @@ export default function Header({ page, onQuickAction, onNavigate }) {
           <h1 className="text-2xl font-bold text-slate-900">{titles[page] || 'FirstCare'}</h1>
           <p className="text-sm text-slate-500">Billing, inventory, reports, and settings in one place</p>
         </div>
+        <button
+          type="button"
+          onClick={onBackup}
+          disabled={backingUp}
+          title="Backup all data to SpacetimeDB"
+          className={cn(
+            'flex h-11 w-11 items-center justify-center rounded-xl border transition',
+            backingUp
+              ? 'cursor-wait border-slate-200 bg-slate-100 text-slate-400'
+              : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700',
+          )}
+        >
+          <CloudUpload size={20} className={backingUp ? 'animate-pulse' : undefined} />
+        </button>
       </div>
       <div className="mt-5 flex flex-wrap gap-3">
         {navItems.map((item) => {

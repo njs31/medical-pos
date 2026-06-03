@@ -245,6 +245,10 @@ export function initDatabase() {
       paper_size TEXT DEFAULT 'A4',
       show_hsn INTEGER DEFAULT 1,
       copies INTEGER DEFAULT 1,
+      spacetime_host TEXT DEFAULT 'https://maincloud.spacetimedb.com',
+      spacetime_database TEXT DEFAULT '',
+      spacetime_token TEXT DEFAULT '',
+      backup_device_id TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -305,6 +309,21 @@ export function initDatabase() {
       ELSE CAST((stock_qty * 20 + 99) / 100 AS INTEGER)
     END
   `);
+
+  const settingsColumns = db.prepare(`PRAGMA table_info(shop_settings)`).all();
+  const settingsColumnNames = settingsColumns.map((column) => column.name);
+  if (!settingsColumnNames.includes('spacetime_host')) {
+    db.exec(`ALTER TABLE shop_settings ADD COLUMN spacetime_host TEXT DEFAULT 'https://maincloud.spacetimedb.com'`);
+  }
+  if (!settingsColumnNames.includes('spacetime_database')) {
+    db.exec(`ALTER TABLE shop_settings ADD COLUMN spacetime_database TEXT DEFAULT ''`);
+  }
+  if (!settingsColumnNames.includes('spacetime_token')) {
+    db.exec(`ALTER TABLE shop_settings ADD COLUMN spacetime_token TEXT DEFAULT ''`);
+  }
+  if (!settingsColumnNames.includes('backup_device_id')) {
+    db.exec(`ALTER TABLE shop_settings ADD COLUMN backup_device_id TEXT DEFAULT ''`);
+  }
 
   if (isFirstRun) {
     seedMedicines(db);

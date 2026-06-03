@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('api', {
     get: () => ipcRenderer.invoke('settings:get'),
     save: (data) => ipcRenderer.invoke('settings:save', data),
   },
+  backup: {
+    toSpacetime: () => ipcRenderer.invoke('backup:spacetime'),
+  },
   suppliers: {
     getAll: () => ipcRenderer.invoke('suppliers:getAll'),
     add: (data) => ipcRenderer.invoke('suppliers:add', data),

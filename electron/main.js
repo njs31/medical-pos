@@ -29,6 +29,7 @@ import {
   updateMedicine,
 } from './database/medicines.js';
 import { getSettings, saveSettings } from './database/settings.js';
+import { backupToSpacetimeDB } from './services/spacetimeBackup.js';
 import {
   createEmergencyBill,
   deleteEmergencyBill,
@@ -513,6 +514,7 @@ ipcMain.handle('reports:dayDetails', async (_, date) => getDayDetails(date));
 
 ipcMain.handle('settings:get', async () => getSettings());
 ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
+ipcMain.handle('backup:spacetime', async () => backupToSpacetimeDB());
 
 ipcMain.handle('suppliers:getAll', async () => getAllSuppliers());
 ipcMain.handle('suppliers:add', async (_, supplier) => addSupplier(supplier));

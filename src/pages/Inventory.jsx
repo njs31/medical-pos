@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, Download, Layers, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -34,6 +35,7 @@ const initialForm = {
 
 const initialBulkRow = {
   name: '',
+  supplier_name: '',
   rack_number: '',
   batch: '',
   expiry: '',
@@ -141,6 +143,132 @@ function getPurchaseCostLines(item) {
   return [`Per quantity: ${formatCurrency(unitCost)}`];
 }
 
+function BulkProductNameInput({
+  value,
+  rowIndex,
+  activeRowIndex,
+  onFocusRow,
+  onChange,
+  onSelectProduct,
+}) {
+  const inputRef = useRef(null);
+  const [results, setResults] = useState([]);
+  const [dropdownStyle, setDropdownStyle] = useState(null);
+  const isActive = activeRowIndex === rowIndex;
+
+  useEffect(() => {
+    if (!isActive || !String(value || '').trim()) {
+      setResults([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const rows = await window.api.medicines.search(value);
+      if (!cancelled) setResults(rows);
+    }, 150);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [value, isActive]);
+
+  useEffect(() => {
+    if (!isActive || !results.length || !inputRef.current) {
+      setDropdownStyle(null);
+      return undefined;
+    }
+
+    function updatePosition() {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setDropdownStyle({
+        position: 'fixed',
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: Math.max(rect.width, 320),
+        zIndex: 9999,
+      });
+    }
+
+    updatePosition();
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [isActive, results]);
+
+  const uniqueResults = useMemo(() => {
+    const seen = new Set();
+    return results.filter((item) => {
+      const key = String(item.name || '').trim().toUpperCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [results]);
+
+  function handleSelect(item) {
+    onSelectProduct(item);
+    setResults([]);
+    onFocusRow(null);
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        value={value}
+        placeholder="Type product name..."
+        onFocus={() => onFocusRow(rowIndex)}
+        onChange={(e) => {
+          onFocusRow(rowIndex);
+          onChange(e.target.value);
+        }}
+        onBlur={() => {
+          setTimeout(() => onFocusRow(null), 180);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onFocusRow(null);
+        }}
+      />
+      {isActive && dropdownStyle && uniqueResults.length > 0 && createPortal(
+        <div
+          style={dropdownStyle}
+          className="max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl"
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {uniqueResults.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="flex w-full items-start gap-2 border-b border-slate-50 px-3 py-2 text-left text-sm transition hover:bg-blue-50 last:border-b-0"
+              onClick={() => handleSelect(item)}
+            >
+              <span className="mt-0.5">{getCategoryBadge(item.item_category || 'Medicine')}</span>
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold text-slate-900">{item.name}</span>
+                {item.rack_number ? (
+                  <span className="ml-2 text-xs text-slate-500">Rack {item.rack_number}</span>
+                ) : null}
+                {String(item.combination || '').trim() ? (
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">{item.combination}</span>
+                ) : null}
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-blue-600">{formatCurrency(item.mrp)}</span>
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 export default function Inventory({ toast, initialFilter = 'all' }) {
   const [medicines, setMedicines] = useState([]);
   const [search, setSearch] = useState('');
@@ -152,9 +280,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [form, setForm] = useState(initialForm);
   const [bulkRows, setBulkRows] = useState(() => createBulkRows());
-  const [bulkSupplierName, setBulkSupplierName] = useState('');
   const [bulkItemCategory, setBulkItemCategory] = useState('Medicine');
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkActiveProductRow, setBulkActiveProductRow] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [itemCategory, setItemCategory] = useState('Medicine');
   const [suppliers, setSuppliers] = useState([]);
@@ -300,8 +428,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   function openBulkModal() {
     requireAuth(() => {
       setBulkRows(createBulkRows());
-      setBulkSupplierName('');
       setBulkItemCategory('Medicine');
+      setBulkActiveProductRow(null);
       setBulkModalOpen(true);
     });
   }
@@ -323,6 +451,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     setBulkRows((rows) => rows.map((row, rowIndex) => (
       rowIndex === index ? { ...row, ...changes } : row
     )));
+  }
+
+  function applyBulkProductSuggestion(index, item) {
+    updateBulkRow(index, {
+      combination: item.combination || '',
+    });
   }
 
   function removeBulkRow(index) {
@@ -365,7 +499,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         {
           ...initialForm,
           ...row,
-          supplier_name: bulkSupplierName,
           item_category: bulkItemCategory,
           tablets_per_sheet: bulkItemCategory === 'Medicine' ? row.tablets_per_sheet : 0,
         },
@@ -376,7 +509,6 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       toast(`${payloads.length} products added successfully`);
       setBulkModalOpen(false);
       setBulkRows(createBulkRows());
-      setBulkSupplierName('');
       setBulkItemCategory('Medicine');
       await load();
     } catch (error) {
@@ -865,7 +997,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         open={bulkModalOpen}
         title="Bulk Add Stock"
         size="max-w-7xl"
-        onClose={() => { if (!bulkSaving) setBulkModalOpen(false); }}
+        onClose={() => { if (!bulkSaving) { setBulkActiveProductRow(null); setBulkModalOpen(false); } }}
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-slate-500">
@@ -883,20 +1015,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         }
       >
         <div className="space-y-4">
-          <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-            <Input
-              as="select"
-              label="Supplier"
-              value={bulkSupplierName}
-              onChange={(e) => setBulkSupplierName(e.target.value)}
-            >
-              <option value="">Select Supplier</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </Input>
+          <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-2">
             <Input
               as="select"
               label="Category"
@@ -918,11 +1037,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="min-w-[1180px] text-sm">
+            <table className="min-w-[1280px] text-sm">
               <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="px-3 py-2 w-10">#</th>
                   <th className="px-3 py-2 min-w-[190px]">Product Name *</th>
+                  <th className="px-3 py-2 min-w-[160px]">Supplier</th>
                   <th className="px-3 py-2 min-w-[95px]">Rack</th>
                   <th className="px-3 py-2 min-w-[120px]">Batch</th>
                   <th className="px-3 py-2 min-w-[110px]">Expiry</th>
@@ -944,11 +1064,28 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <tr key={`bulk-row-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="px-3 py-2 font-semibold text-slate-500">{index + 1}</td>
                     <td className="px-3 py-2">
-                      <input
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      <BulkProductNameInput
                         value={row.name}
-                        onChange={(e) => updateBulkRow(index, { name: e.target.value })}
+                        rowIndex={index}
+                        activeRowIndex={bulkActiveProductRow}
+                        onFocusRow={setBulkActiveProductRow}
+                        onChange={(name) => updateBulkRow(index, { name })}
+                        onSelectProduct={(item) => applyBulkProductSuggestion(index, item)}
                       />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        value={row.supplier_name}
+                        onChange={(e) => updateBulkRow(index, { supplier_name: e.target.value })}
+                      >
+                        <option value="">Select Supplier</option>
+                        {suppliers.map((s) => (
+                          <option key={s.id} value={s.name}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-3 py-2">
                       <input

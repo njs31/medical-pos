@@ -20,7 +20,11 @@ export function saveSettings(data) {
       footer_message = @footer_message,
       paper_size = @paper_size,
       show_hsn = @show_hsn,
-      copies = @copies
+      copies = @copies,
+      spacetime_host = @spacetime_host,
+      spacetime_database = @spacetime_database,
+      spacetime_token = @spacetime_token,
+      backup_device_id = @backup_device_id
     WHERE id = 1
   `).run(data);
   return getSettings();

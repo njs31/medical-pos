@@ -18,6 +18,10 @@ const defaults = {
   paper_size: 'A4',
   show_hsn: 1,
   copies: 1,
+  spacetime_host: 'https://maincloud.spacetimedb.com',
+  spacetime_database: '',
+  spacetime_token: '',
+  backup_device_id: '',
 };
 
 export default function Settings({ toast }) {
@@ -204,6 +208,36 @@ export default function Settings({ toast }) {
             />
             Show HSN on bill
           </label>
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-6 shadow-card">
+        <h2 className="mb-1 text-lg font-bold text-slate-900">Cloud Backup (SpacetimeDB)</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Configure once, then use the cloud icon in the top-right header to upload a full data snapshot.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input
+            label="SpacetimeDB Host"
+            value={form.spacetime_host}
+            onChange={(e) => setForm((prev) => ({ ...prev, spacetime_host: e.target.value }))}
+            placeholder="https://maincloud.spacetimedb.com"
+          />
+          <Input
+            label="Database Name"
+            value={form.spacetime_database}
+            onChange={(e) => setForm((prev) => ({ ...prev, spacetime_database: e.target.value }))}
+            placeholder="medical-pos-backup"
+          />
+          <div className="md:col-span-2">
+            <Input
+              label="Bearer Token"
+              type="password"
+              value={form.spacetime_token}
+              onChange={(e) => setForm((prev) => ({ ...prev, spacetime_token: e.target.value }))}
+              placeholder="SpacetimeDB auth token"
+            />
+          </div>
         </div>
       </section>
 
