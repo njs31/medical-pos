@@ -4,5 +4,8 @@
   "type": "module",
   "dependencies": {
     "spacetimedb": "^1.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
   }
 }

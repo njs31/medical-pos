@@ -10,11 +10,9 @@ function formatRegDate(value) {
   return raw;
 }
 
-function formatAge(years, months, days) {
+function formatAge(years) {
   const y = Number(years) || 0;
-  const m = Number(months) || 0;
-  const d = Number(days) || 0;
-  return `${y}Years ${m}Months ${d}Days`;
+  return `${y}Years`;
 }
 
 function formatAmount(value) {
@@ -193,7 +191,7 @@ export default function EmergencyBillTemplate({ bill }) {
           <LabelValue label="Sex" value={bill.sex} labelWidth="62px" />
           <LabelValue
             label="Age"
-            value={formatAge(bill.age_years, bill.age_months, bill.age_days)}
+            value={formatAge(bill.age_years)}
             labelWidth="62px"
           />
         </div>

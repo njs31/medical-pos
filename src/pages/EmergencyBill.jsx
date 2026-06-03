@@ -46,8 +46,6 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
     reg_time: formatRegTimeNow(),
     sex: 'Male',
     age_years: '',
-    age_months: '',
-    age_days: '',
     due_amount: '0',
     items: [emptyService()],
   });
@@ -77,6 +75,7 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
       setBill({
         ...data,
         reg_date: data.reg_date?.includes('/') ? data.reg_date : data.reg_date,
+        age_years: data.age_years != null ? String(data.age_years) : '',
         items: data.items?.length ? data.items : [emptyService()],
         due_amount: String(data.due_amount ?? 0),
       });
@@ -134,8 +133,8 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
       reg_time: regTime,
       sex: bill.sex,
       age_years: Number(bill.age_years) || 0,
-      age_months: Number(bill.age_months) || 0,
-      age_days: Number(bill.age_days) || 0,
+      age_months: 0,
+      age_days: 0,
       paid_amount: summary.paidAmount,
       due_amount: summary.dueAmount,
       discount_amount: summary.discountAmount,
@@ -194,8 +193,6 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
       reg_time: formatRegTimeNow(),
       sex: 'Male',
       age_years: '',
-      age_months: '',
-      age_days: '',
       due_amount: '0',
       items: [emptyService()],
     });
@@ -267,29 +264,13 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
           />
           <Input label="Reg. Time" value={bill.reg_time} onChange={(e) => updateField('reg_time', e.target.value)} />
           <Input label="Sex" value={bill.sex} onChange={(e) => updateField('sex', e.target.value)} />
-          <div className="grid grid-cols-3 gap-2">
-            <Input
-              label="Age (Years)"
-              type="number"
-              min="0"
-              value={bill.age_years}
-              onChange={(e) => updateField('age_years', e.target.value)}
-            />
-            <Input
-              label="Months"
-              type="number"
-              min="0"
-              value={bill.age_months}
-              onChange={(e) => updateField('age_months', e.target.value)}
-            />
-            <Input
-              label="Days"
-              type="number"
-              min="0"
-              value={bill.age_days}
-              onChange={(e) => updateField('age_days', e.target.value)}
-            />
-          </div>
+          <Input
+            label="Age (Years)"
+            type="number"
+            min="0"
+            value={bill.age_years}
+            onChange={(e) => updateField('age_years', e.target.value)}
+          />
           <Input
             label="Due Amount"
             type="number"

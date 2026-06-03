@@ -11,13 +11,18 @@ const backupSnapshot = table(
   },
 );
 
-const spacetimedb = schema({ backup_snapshot: backupSnapshot });
+const spacetimedb = schema(backupSnapshot);
 export default spacetimedb;
 
-export const store_backup = spacetimedb.reducer(
-  { device_id: t.string(), shop_name: t.string(), payload: t.string() },
+spacetimedb.reducer(
+  'store_backup',
+  {
+    device_id: t.string(),
+    shop_name: t.string(),
+    payload: t.string(),
+  },
   (ctx, { device_id, shop_name, payload }) => {
-    ctx.db.backup_snapshot.insert({
+    ctx.db.backupSnapshot.insert({
       id: 0n,
       device_id,
       shop_name,

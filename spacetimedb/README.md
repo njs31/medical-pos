@@ -24,8 +24,10 @@ spacetime login show --token
 ```bash
 cd spacetimedb
 npm install
-spacetime publish medical-pos-backup --project-path .
+spacetime publish medical-pos-backup -p . -y
 ```
+
+(`-p .` is the module folder; `-y` skips confirmations. From the repo root you can use `spacetime publish medical-pos-backup -p spacetimedb -y` instead.)
 
 5. In the app, open **Settings → Cloud Backup** and set:
    - **Host:** `https://maincloud.spacetimedb.com` (default)
