@@ -142,6 +142,10 @@ function getPurchaseCostLines(item) {
   return [`Per quantity: ${formatCurrency(unitCost)}`];
 }
 
+const BULK_CELL = 'px-1.5 py-1';
+const BULK_INPUT =
+  'w-full rounded border border-slate-300 px-1.5 py-1 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
+
 function BulkProductNameInput({
   value,
   rowIndex,
@@ -210,9 +214,9 @@ function BulkProductNameInput({
     <>
       <input
         ref={inputRef}
-        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        className={BULK_INPUT}
         value={value}
-        placeholder="Type product name..."
+        placeholder="Product name..."
         onFocus={() => onFocusRow(rowIndex)}
         onChange={(e) => {
           onFocusRow(rowIndex);
@@ -235,7 +239,7 @@ function BulkProductNameInput({
             <button
               key={item.id}
               type="button"
-              className="flex w-full items-start gap-2 border-b border-slate-50 px-3 py-2 text-left text-sm transition hover:bg-blue-50 last:border-b-0"
+              className="flex w-full items-start gap-2 border-b border-slate-50 px-2 py-1.5 text-left text-xs transition hover:bg-blue-50 last:border-b-0"
               onClick={() => handleSelect(item)}
             >
               <span className="mt-0.5">{getCategoryBadge(item.item_category || 'Medicine')}</span>
@@ -993,7 +997,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       <Modal
         open={bulkModalOpen}
         title="Bulk Add Stock"
-        size="max-w-7xl"
+        viewportInset={5}
         onClose={() => { if (!bulkSaving) { setBulkActiveProductRow(null); setBulkModalOpen(false); } }}
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1011,8 +1015,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </div>
         }
       >
-        <div className="space-y-4">
-          <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
+        <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="grid shrink-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
             <Input
               as="select"
               label="Supplier"
@@ -1046,33 +1050,33 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="min-w-[1180px] text-sm">
-              <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border border-slate-200">
+            <table className="w-full table-fixed text-xs">
+              <thead className="bg-slate-100 text-left text-[10px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th className="px-3 py-2 w-10">#</th>
-                  <th className="px-3 py-2 min-w-[190px]">Product Name *</th>
-                  <th className="px-3 py-2 min-w-[95px]">Rack</th>
-                  <th className="px-3 py-2 min-w-[120px]">Batch</th>
-                  <th className="px-3 py-2 min-w-[110px]">Expiry</th>
-                  <th className="px-3 py-2 min-w-[110px]">MRP *</th>
-                  <th className="px-3 py-2 min-w-[140px]">Purchase Cost *</th>
-                  <th className="px-3 py-2 min-w-[110px]">Stock *</th>
+                  <th className={`${BULK_CELL} w-[3%]`}>#</th>
+                  <th className={`${BULK_CELL} w-[15%]`}>Product *</th>
+                  <th className={`${BULK_CELL} w-[5%]`}>Rack</th>
+                  <th className={`${BULK_CELL} w-[7%]`}>Batch</th>
+                  <th className={`${BULK_CELL} w-[6%]`}>Expiry</th>
+                  <th className={`${BULK_CELL} w-[6%]`}>MRP *</th>
+                  <th className={`${BULK_CELL} w-[7%]`}>Cost *</th>
+                  <th className={`${BULK_CELL} w-[5%]`}>Stock *</th>
                   {bulkItemCategory === 'Medicine' && (
                     <>
-                      <th className="px-3 py-2 min-w-[120px]">Tabs/Sheet</th>
-                      <th className="px-3 py-2 min-w-[110px]">Type</th>
+                      <th className={`${BULK_CELL} w-[6%]`}>Tabs</th>
+                      <th className={`${BULK_CELL} w-[6%]`}>Type</th>
                     </>
                   )}
-                  <th className="px-3 py-2 min-w-[210px]">Combination</th>
-                  <th className="px-3 py-2 w-14"></th>
+                  <th className={BULK_CELL}>Combo</th>
+                  <th className={`${BULK_CELL} w-[4%]`}></th>
                 </tr>
               </thead>
               <tbody>
                 {bulkRows.map((row, index) => (
                   <tr key={`bulk-row-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                    <td className="px-3 py-2 font-semibold text-slate-500">{index + 1}</td>
-                    <td className="px-3 py-2">
+                    <td className={`${BULK_CELL} font-semibold text-slate-500`}>{index + 1}</td>
+                    <td className={BULK_CELL}>
                       <BulkProductNameInput
                         value={row.name}
                         rowIndex={index}
@@ -1082,73 +1086,73 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         onSelectProduct={(item) => applyBulkProductSuggestion(index, item)}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         value={row.rack_number}
                         onChange={(e) => updateBulkRow(index, { rack_number: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         value={row.batch}
                         onChange={(e) => updateBulkRow(index, { batch: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         placeholder="MM/YY"
                         value={row.expiry}
                         onChange={(e) => updateBulkRow(index, { expiry: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         value={row.mrp}
                         onChange={(e) => updateBulkRow(index, { mrp: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
                         type="number"
                         min="0"
                         step="0.01"
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         value={row.purchase_cost_input}
                         onChange={(e) => updateBulkRow(index, { purchase_cost_input: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
                         type="number"
                         min="0"
                         step="1"
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         value={row.stock_qty}
                         onChange={(e) => updateBulkRow(index, { stock_qty: e.target.value })}
                       />
                     </td>
                     {bulkItemCategory === 'Medicine' && (
                       <>
-                        <td className="px-3 py-2">
+                        <td className={BULK_CELL}>
                           <input
                             type="number"
                             min="0"
                             step="1"
-                            className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            className={BULK_INPUT}
                             value={row.tablets_per_sheet}
                             onChange={(e) => updateBulkRow(index, { tablets_per_sheet: e.target.value })}
                           />
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={BULK_CELL}>
                           <select
-                            className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                            className={BULK_INPUT}
                             value={row.product_type || 'Generic'}
                             onChange={(e) => updateBulkRow(index, { product_type: e.target.value })}
                           >
@@ -1158,23 +1162,23 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         </td>
                       </>
                     )}
-                    <td className="px-3 py-2">
+                    <td className={BULK_CELL}>
                       <input
-                        className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        className={BULK_INPUT}
                         placeholder="Salt names"
                         value={row.combination}
                         onChange={(e) => updateBulkRow(index, { combination: e.target.value })}
                       />
                     </td>
-                    <td className="px-3 py-2 text-right">
+                    <td className={`${BULK_CELL} text-right`}>
                       <Button
                         type="button"
                         variant="danger"
-                        className="px-3 py-2"
+                        className="px-2 py-1"
                         onClick={() => removeBulkRow(index)}
                         title="Remove row"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </Button>
                     </td>
                   </tr>
