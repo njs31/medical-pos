@@ -146,6 +146,70 @@ const BULK_CELL = 'px-1.5 py-1';
 const BULK_INPUT =
   'w-full rounded border border-slate-300 px-1.5 py-1 text-xs outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
 
+function getBulkColumnKeys(itemCategory) {
+  const columns = ['name', 'rack_number', 'batch', 'expiry', 'mrp', 'purchase_cost_input', 'stock_qty'];
+  if (itemCategory === 'Medicine') columns.push('tablets_per_sheet', 'product_type');
+  columns.push('combination');
+  return columns;
+}
+
+function focusBulkCell(rowIndex, colKey) {
+  const el = document.getElementById(`bulk-cell-${rowIndex}-${colKey}`);
+  if (!el) return;
+  el.focus();
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (typeof el.select === 'function' && el.tagName === 'INPUT' && el.type !== 'number') {
+    el.select();
+  }
+}
+
+function shouldNavigateHorizontal(e) {
+  const { key, target } = e;
+  if (key !== 'ArrowLeft' && key !== 'ArrowRight') return true;
+  if (target.tagName === 'SELECT') return true;
+  if (target.tagName !== 'INPUT' || target.type === 'number') return true;
+  const len = target.value?.length ?? 0;
+  const start = target.selectionStart ?? 0;
+  const end = target.selectionEnd ?? 0;
+  if (key === 'ArrowLeft') return start === 0 && end === 0;
+  return start === len && end === len;
+}
+
+function handleBulkCellKeyDown(e, { rowIndex, colKey, columnKeys, rowCount, onBeforeNavigate }) {
+  const navKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'];
+  if (!navKeys.includes(e.key)) return;
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !shouldNavigateHorizontal(e)) return;
+
+  const colIdx = columnKeys.indexOf(colKey);
+  if (colIdx === -1) return;
+
+  e.preventDefault();
+  onBeforeNavigate?.();
+
+  let nextRow = rowIndex;
+  let nextColIdx = colIdx;
+
+  switch (e.key) {
+    case 'ArrowUp':
+      nextRow = Math.max(0, rowIndex - 1);
+      break;
+    case 'ArrowDown':
+    case 'Enter':
+      nextRow = Math.min(rowCount - 1, rowIndex + 1);
+      break;
+    case 'ArrowLeft':
+      nextColIdx = Math.max(0, colIdx - 1);
+      break;
+    case 'ArrowRight':
+      nextColIdx = Math.min(columnKeys.length - 1, colIdx + 1);
+      break;
+    default:
+      break;
+  }
+
+  focusBulkCell(nextRow, columnKeys[nextColIdx]);
+}
+
 function BulkProductNameInput({
   value,
   rowIndex,
@@ -153,11 +217,18 @@ function BulkProductNameInput({
   onFocusRow,
   onChange,
   onSelectProduct,
+  columnKeys,
+  rowCount,
 }) {
   const inputRef = useRef(null);
   const [results, setResults] = useState([]);
   const [dropdownStyle, setDropdownStyle] = useState(null);
+  const [highlightIndex, setHighlightIndex] = useState(0);
   const isActive = activeRowIndex === rowIndex;
+
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [results]);
 
   useEffect(() => {
     if (!isActive || !String(value || '').trim()) {
@@ -204,16 +275,57 @@ function BulkProductNameInput({
     };
   }, [isActive, results]);
 
-  function handleSelect(item) {
+  function handleSelect(item, moveToNextField = false) {
     onSelectProduct(item);
     setResults([]);
     onFocusRow(null);
+    if (moveToNextField) {
+      setTimeout(() => focusBulkCell(rowIndex, 'rack_number'), 0);
+    }
+  }
+
+  function handleKeyDown(e) {
+    if (isActive && results.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightIndex((i) => Math.min(results.length - 1, i + 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightIndex((i) => Math.max(0, i - 1));
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSelect(results[highlightIndex], true);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setResults([]);
+        onFocusRow(null);
+        return;
+      }
+    }
+
+    handleBulkCellKeyDown(e, {
+      rowIndex,
+      colKey: 'name',
+      columnKeys,
+      rowCount,
+      onBeforeNavigate: () => {
+        setResults([]);
+        onFocusRow(null);
+      },
+    });
   }
 
   return (
     <>
       <input
         ref={inputRef}
+        id={`bulk-cell-${rowIndex}-name`}
         className={BULK_INPUT}
         value={value}
         placeholder="Product name..."
@@ -225,9 +337,7 @@ function BulkProductNameInput({
         onBlur={() => {
           setTimeout(() => onFocusRow(null), 180);
         }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onFocusRow(null);
-        }}
+        onKeyDown={handleKeyDown}
       />
       {isActive && dropdownStyle && results.length > 0 && createPortal(
         <div
@@ -235,12 +345,14 @@ function BulkProductNameInput({
           className="max-h-56 overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {results.map((item) => (
+          {results.map((item, idx) => (
             <button
               key={item.id}
               type="button"
-              className="flex w-full items-start gap-2 border-b border-slate-50 px-2 py-1.5 text-left text-xs transition hover:bg-blue-50 last:border-b-0"
-              onClick={() => handleSelect(item)}
+              className={`flex w-full items-start gap-2 border-b border-slate-50 px-2 py-1.5 text-left text-xs transition last:border-b-0 ${
+                idx === highlightIndex ? 'bg-blue-50' : 'hover:bg-blue-50'
+              }`}
+              onClick={() => handleSelect(item, true)}
             >
               <span className="mt-0.5">{getCategoryBadge(item.item_category || 'Medicine')}</span>
               <span className="min-w-0 flex-1">
@@ -277,6 +389,18 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [bulkItemCategory, setBulkItemCategory] = useState('Medicine');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkActiveProductRow, setBulkActiveProductRow] = useState(null);
+  const bulkColumnKeys = useMemo(() => getBulkColumnKeys(bulkItemCategory), [bulkItemCategory]);
+  const handleBulkNavigate = useCallback(
+    (e, rowIndex, colKey) => {
+      handleBulkCellKeyDown(e, {
+        rowIndex,
+        colKey,
+        columnKeys: bulkColumnKeys,
+        rowCount: bulkRows.length,
+      });
+    },
+    [bulkColumnKeys, bulkRows.length],
+  );
   const [editingId, setEditingId] = useState(null);
   const [itemCategory, setItemCategory] = useState('Medicine');
   const [suppliers, setSuppliers] = useState([]);
@@ -1084,77 +1208,95 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         onFocusRow={setBulkActiveProductRow}
                         onChange={(name) => updateBulkRow(index, { name })}
                         onSelectProduct={(item) => applyBulkProductSuggestion(index, item)}
+                        columnKeys={bulkColumnKeys}
+                        rowCount={bulkRows.length}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-rack_number`}
                         className={BULK_INPUT}
                         value={row.rack_number}
                         onChange={(e) => updateBulkRow(index, { rack_number: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'rack_number')}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-batch`}
                         className={BULK_INPUT}
                         value={row.batch}
                         onChange={(e) => updateBulkRow(index, { batch: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'batch')}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-expiry`}
                         className={BULK_INPUT}
                         placeholder="MM/YY"
                         value={row.expiry}
                         onChange={(e) => updateBulkRow(index, { expiry: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'expiry')}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-mrp`}
                         type="number"
                         min="0"
                         step="0.01"
                         className={BULK_INPUT}
                         value={row.mrp}
                         onChange={(e) => updateBulkRow(index, { mrp: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'mrp')}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-purchase_cost_input`}
                         type="number"
                         min="0"
                         step="0.01"
                         className={BULK_INPUT}
                         value={row.purchase_cost_input}
                         onChange={(e) => updateBulkRow(index, { purchase_cost_input: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'purchase_cost_input')}
                       />
                     </td>
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-stock_qty`}
                         type="number"
                         min="0"
                         step="1"
                         className={BULK_INPUT}
                         value={row.stock_qty}
                         onChange={(e) => updateBulkRow(index, { stock_qty: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'stock_qty')}
                       />
                     </td>
                     {bulkItemCategory === 'Medicine' && (
                       <>
                         <td className={BULK_CELL}>
                           <input
+                            id={`bulk-cell-${index}-tablets_per_sheet`}
                             type="number"
                             min="0"
                             step="1"
                             className={BULK_INPUT}
                             value={row.tablets_per_sheet}
                             onChange={(e) => updateBulkRow(index, { tablets_per_sheet: e.target.value })}
+                            onKeyDown={(e) => handleBulkNavigate(e, index, 'tablets_per_sheet')}
                           />
                         </td>
                         <td className={BULK_CELL}>
                           <select
+                            id={`bulk-cell-${index}-product_type`}
                             className={BULK_INPUT}
                             value={row.product_type || 'Generic'}
                             onChange={(e) => updateBulkRow(index, { product_type: e.target.value })}
+                            onKeyDown={(e) => handleBulkNavigate(e, index, 'product_type')}
                           >
                             <option value="Generic">Generic</option>
                             <option value="Ethical">Ethical</option>
@@ -1164,10 +1306,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     )}
                     <td className={BULK_CELL}>
                       <input
+                        id={`bulk-cell-${index}-combination`}
                         className={BULK_INPUT}
                         placeholder="Salt names"
                         value={row.combination}
                         onChange={(e) => updateBulkRow(index, { combination: e.target.value })}
+                        onKeyDown={(e) => handleBulkNavigate(e, index, 'combination')}
                       />
                     </td>
                     <td className={`${BULK_CELL} text-right`}>
