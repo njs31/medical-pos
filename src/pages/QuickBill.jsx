@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatInventoryQty, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
@@ -160,6 +161,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
     patient_phone: '',
     doctor_name: shopSettings?.default_doctor || '',
     date: todayIso(),
+    payment_method: 'Cash',
     items: [],
   });
 
@@ -198,6 +200,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
         doctor_name: existing.doctor_name || '',
         date: existing.date || todayIso(),
         invoice_no: existing.invoice_no || '',
+        payment_method: existing.payment_method || 'Cash',
         status: existing.status || 'quick-saved',
         items: (existing.items || []).map((item, idx) => ({
           id: item.medicine_id ? `inv-${item.id}-${idx}` : `quick-${item.id}-${idx}`,
@@ -383,6 +386,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
       patient_phone: '',
       doctor_name: shopSettings?.default_doctor || '',
       date: todayIso(),
+      payment_method: 'Cash',
       items: [],
     });
   }
@@ -705,6 +709,10 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
            </div>
 
            <div className="flex flex-col justify-end gap-3">
+              <PaymentMethodSelector
+                value={bill.payment_method || 'Cash'}
+                onChange={(method) => setBill((prev) => ({ ...prev, payment_method: method }))}
+              />
               <button
                 onClick={() => saveQuickBill('saved', true)}
                 className="w-full rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 p-5 text-xl font-black text-white shadow-xl shadow-blue-200 transition active:scale-[0.98] hover:shadow-2xl hover:-translate-y-0.5"

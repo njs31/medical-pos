@@ -3,8 +3,21 @@ import { Eye, Pencil, Printer, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
+import PaymentMethodBadge from '@/components/PaymentMethodBadge';
 import BillTemplate from '@/print/BillTemplate';
 import { formatCurrency, formatDate, todayIso } from '@/utils/formatters';
+
+function isoFromDate(date) {
+  const tz = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tz).toISOString().slice(0, 10);
+}
+
+const DATE_PRESETS = [
+  { label: 'Past 1 week', days: 7 },
+  { label: 'Past 10 days', days: 10 },
+  { label: 'Past 15 days', days: 15 },
+  { label: 'Past 30 days', days: 30 },
+];
 
 export default function BillHistory({ toast, onNavigate }) {
   const [bills, setBills] = useState([]);
@@ -15,8 +28,9 @@ export default function BillHistory({ toast, onNavigate }) {
   });
   const [selectedBill, setSelectedBill] = useState(null);
 
-  async function load() {
-    setBills(await window.api.bills.getAll(filters));
+  async function load(overrideFilters) {
+    const next = overrideFilters || filters;
+    setBills(await window.api.bills.getAll(next));
   }
 
   useEffect(() => {
@@ -24,7 +38,25 @@ export default function BillHistory({ toast, onNavigate }) {
   }, []);
 
   async function applyFilters() {
-    setBills(await window.api.bills.getAll(filters));
+    await load(filters);
+  }
+
+  function applyPresetDays(days) {
+    const to = todayIso();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    const from = isoFromDate(start);
+    const next = { ...filters, from, to };
+    setFilters(next);
+    load(next);
+  }
+
+  function isPresetActive(days) {
+    const to = todayIso();
+    const start = new Date();
+    start.setDate(start.getDate() - (days - 1));
+    const from = isoFromDate(start);
+    return filters.from === from && filters.to === to;
   }
 
   async function openBill(id) {
@@ -76,6 +108,25 @@ export default function BillHistory({ toast, onNavigate }) {
             </Button>
           </div>
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {DATE_PRESETS.map((preset) => {
+            const active = isPresetActive(preset.days);
+            return (
+              <button
+                key={preset.days}
+                type="button"
+                onClick={() => applyPresetDays(preset.days)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-card">
@@ -83,7 +134,7 @@ export default function BillHistory({ toast, onNavigate }) {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['Invoice No', 'Patient Name', 'Doctor', 'Date', 'Items', 'Grand Total', 'Actions'].map((head) => (
+                {['Invoice No', 'Patient Name', 'Doctor', 'Date', 'Payment', 'Items', 'Grand Total', 'Actions'].map((head) => (
                   <th key={head} className="px-4 py-3">
                     {head}
                   </th>
@@ -101,6 +152,9 @@ export default function BillHistory({ toast, onNavigate }) {
                   <td className="px-4 py-3">{bill.patient_name || '-'}</td>
                   <td className="px-4 py-3">{bill.doctor_name || '-'}</td>
                   <td className="px-4 py-3">{formatDate(bill.date)}</td>
+                  <td className="px-4 py-3">
+                    <PaymentMethodBadge method={bill.payment_method} />
+                  </td>
                   <td className="px-4 py-3">{bill.total_items}</td>
                   <td className="px-4 py-3">{formatCurrency(bill.grand_total)}</td>
                   <td className="px-4 py-3">
@@ -135,7 +189,7 @@ export default function BillHistory({ toast, onNavigate }) {
               ))}
               {!rows.length && (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center text-slate-500">
+                  <td colSpan="8" className="px-4 py-12 text-center text-slate-500">
                     No bills found for the selected filters.
                   </td>
                 </tr>
@@ -147,7 +201,7 @@ export default function BillHistory({ toast, onNavigate }) {
 
       <Modal
         open={Boolean(selectedBill)}
-        title={selectedBill ? `Bill Preview - ${selectedBill.invoice_no}` : 'Bill Preview'}
+        title={selectedBill ? `Bill Preview - ${selectedBill.invoice_no} · ${selectedBill.payment_method || 'Cash'}` : 'Bill Preview'}
         onClose={() => setSelectedBill(null)}
         size="max-w-5xl"
       >

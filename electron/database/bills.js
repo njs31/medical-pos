@@ -38,11 +38,11 @@ export function createBill(billData) {
     INSERT INTO bills (
       invoice_no, patient_name, patient_phone, doctor_name, date,
       subtotal, discount_percent, discount_amount, sgst_total, cgst_total,
-      grand_total, total_items, status, created_at
+      grand_total, total_items, status, payment_method, created_at
     ) VALUES (
       @invoice_no, @patient_name, @patient_phone, @doctor_name, @date,
       @subtotal, @discount_percent, @discount_amount, @sgst_total, @cgst_total,
-      @grand_total, @total_items, @status, datetime('now')
+      @grand_total, @total_items, @status, @payment_method, datetime('now')
     )
   `);
 
@@ -62,6 +62,7 @@ export function createBill(billData) {
     const billInfo = insertBill.run({
       sgst_total: 0,
       cgst_total: 0,
+      payment_method: billData.payment_method || 'Cash',
       ...billData,
       invoice_no: invoiceNo,
       total_items: billData.items.length,
@@ -178,7 +179,8 @@ export function updateBill(id, billData) {
       cgst_total = @cgst_total,
       grand_total = @grand_total,
       total_items = @total_items,
-      status = @status
+      status = @status,
+      payment_method = @payment_method
     WHERE id = @id
   `);
 
@@ -206,6 +208,7 @@ export function updateBill(id, billData) {
     updateBillStmt.run({
       sgst_total: 0,
       cgst_total: 0,
+      payment_method: billData.payment_method || 'Cash',
       ...billData,
       id,
       total_items: billData.items.length,
@@ -272,7 +275,13 @@ export function getDashboardSummary() {
   `).get();
 
   const recentBills = getDb().prepare(`
-    SELECT id, invoice_no, patient_name, grand_total, date
+    SELECT
+      id,
+      invoice_no,
+      patient_name,
+      grand_total,
+      date,
+      COALESCE(NULLIF(TRIM(payment_method), ''), 'Cash') as payment_method
     FROM bills
     ORDER BY id DESC
     LIMIT 10
@@ -333,13 +342,40 @@ export function getSalesSummary(from, to) {
   const totalProfit = items.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
   totals.total_profit = totalProfit;
 
+  const paymentBreakdown = getDb().prepare(`
+    SELECT
+      COALESCE(NULLIF(TRIM(payment_method), ''), 'Cash') as payment_method,
+      COUNT(*) as bill_count,
+      COALESCE(SUM(grand_total), 0) as total_amount
+    FROM bills
+    WHERE date(date) BETWEEN date(@from) AND date(@to)
+    GROUP BY COALESCE(NULLIF(TRIM(payment_method), ''), 'Cash')
+    ORDER BY total_amount DESC
+  `).all(params);
+
   const topMedicines = items.slice(0, 10).map((item) => ({
     product_name: item.product_name,
     qty: item.qty,
     revenue: item.total_amount,
   }));
 
-  return { totals, dayWise, items, topMedicines };
+  const bills = getDb().prepare(`
+    SELECT
+      id,
+      invoice_no,
+      patient_name,
+      doctor_name,
+      date,
+      grand_total,
+      total_items,
+      status,
+      COALESCE(NULLIF(TRIM(payment_method), ''), 'Cash') as payment_method
+    FROM bills
+    WHERE date(date) BETWEEN date(@from) AND date(@to)
+    ORDER BY date(date) DESC, id DESC
+  `).all(params);
+
+  return { totals, dayWise, items, topMedicines, paymentBreakdown, bills };
 }
 
 export function getDayDetails(date) {
@@ -378,12 +414,26 @@ export function getDayDetails(date) {
 
   const totalProfit = items.reduce((sum, item) => sum + (Number(item.profit) || 0), 0);
 
+  const bills = getDb().prepare(`
+    SELECT
+      id,
+      invoice_no,
+      patient_name,
+      grand_total,
+      COALESCE(NULLIF(TRIM(payment_method), ''), 'Cash') as payment_method
+    FROM bills
+    WHERE date(date) = date(@date)
+       OR substr(date, 1, 10) = @date
+    ORDER BY id DESC
+  `).all(params);
+
   return {
     date: normalized,
     totalSales: Number(totals.total_sales) || 0,
     totalBills: Number(totals.total_bills) || 0,
     totalProfit,
     items,
+    bills,
   };
 }
 

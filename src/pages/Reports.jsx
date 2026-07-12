@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import PaymentMethodBadge from '@/components/PaymentMethodBadge';
 import { formatBillQty, formatCurrency, formatDate, todayIso } from '@/utils/formatters';
 
 function InfoCard({ label, value, tone }) {
@@ -122,6 +123,39 @@ function SalesCalendar({ monthDate, onChangeMonth, salesByDate, onPickDay }) {
   );
 }
 
+function BillsList({ bills, emptyText }) {
+  if (!bills || bills.length === 0) {
+    return <div className="py-8 text-center text-sm text-slate-500">{emptyText}</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            {['Invoice', 'Patient', 'Date', 'Payment', 'Amount'].map((head) => (
+              <th key={head} className="px-4 py-3">{head}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {bills.map((bill, index) => (
+            <tr key={bill.id} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+              <td className="px-4 py-3 font-semibold text-slate-900">{bill.invoice_no}</td>
+              <td className="px-4 py-3 text-slate-700">{bill.patient_name || '-'}</td>
+              <td className="px-4 py-3 text-slate-700">{formatDate(bill.date)}</td>
+              <td className="px-4 py-3">
+                <PaymentMethodBadge method={bill.payment_method} />
+              </td>
+              <td className="px-4 py-3 font-bold text-slate-900">{formatCurrency(bill.grand_total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function MedicineProfitList({ items, emptyText }) {
   if (!items || items.length === 0) {
     return <div className="py-8 text-center text-sm text-slate-500">{emptyText}</div>;
@@ -169,6 +203,7 @@ function DayDetailsPanel({ open, loading, data, onClose }) {
   if (!open) return null;
 
   const items = data?.items || [];
+  const bills = data?.bills || [];
   const totalSales = Number(data?.totalSales) || 0;
   const totalProfit = Number(data?.totalProfit) || 0;
   const totalBills = Number(data?.totalBills) || 0;
@@ -212,13 +247,23 @@ function DayDetailsPanel({ open, loading, data, onClose }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          <h4 className="mb-3 text-sm font-semibold text-slate-700">Products Sold</h4>
-          {loading ? (
-            <div className="py-8 text-center text-sm text-slate-500">Loading…</div>
-          ) : (
-            <MedicineProfitList items={items} emptyText="No sales on this day." />
-          )}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-slate-700">Bills</h4>
+            {loading ? (
+              <div className="py-8 text-center text-sm text-slate-500">Loading…</div>
+            ) : (
+              <BillsList bills={bills} emptyText="No bills on this day." />
+            )}
+          </div>
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-slate-700">Products Sold</h4>
+            {loading ? (
+              <div className="py-8 text-center text-sm text-slate-500">Loading…</div>
+            ) : (
+              <MedicineProfitList items={items} emptyText="No sales on this day." />
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -230,7 +275,7 @@ export default function Reports() {
     from: todayIso().slice(0, 8) + '01',
     to: todayIso(),
   });
-  const [sales, setSales] = useState({ totals: {}, dayWise: [], items: [], topMedicines: [] });
+  const [sales, setSales] = useState({ totals: {}, dayWise: [], items: [], topMedicines: [], paymentBreakdown: [], bills: [] });
   const [dayPanel, setDayPanel] = useState({ open: false, loading: false, data: null });
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();
@@ -297,7 +342,7 @@ export default function Reports() {
       setDayPanel({
         open: true,
         loading: false,
-        data: { date, items: [], totalSales: 0, totalProfit: 0, totalBills: 0 },
+        data: { date, items: [], bills: [], totalSales: 0, totalProfit: 0, totalBills: 0 },
       });
     }
   }
@@ -374,6 +419,44 @@ export default function Reports() {
         />
         <InfoCard label="Total Bills" value={totalBills} />
       </div>
+
+      <section className="rounded-2xl bg-white p-5 shadow-card">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Payment Methods</h2>
+          <span className="text-xs text-slate-500">
+            {formatDate(range.from)} – {formatDate(range.to)}
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {['Cash', 'UPI', 'Card'].map((method) => {
+            const row = (sales.paymentBreakdown || []).find((entry) => entry.payment_method === method);
+            const billCount = Number(row?.bill_count) || 0;
+            const amount = Number(row?.total_amount) || 0;
+            return (
+              <div key={method} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="text-sm font-bold text-slate-500">{method}</div>
+                <div className="mt-2 text-2xl font-extrabold text-slate-900">{formatCurrency(amount)}</div>
+                <div className="mt-1 text-xs font-semibold text-slate-500">
+                  {billCount} bill{billCount === 1 ? '' : 's'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-card">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Bills in Range</h2>
+          <span className="text-xs text-slate-500">
+            {formatDate(range.from)} – {formatDate(range.to)} · {(sales.bills || []).length} bills
+          </span>
+        </div>
+        <BillsList
+          bills={sales.bills || []}
+          emptyText="No bills in this range."
+        />
+      </section>
 
       <section className="rounded-2xl bg-white p-5 shadow-card">
         <div className="mb-4 flex items-center justify-between">

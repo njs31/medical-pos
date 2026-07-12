@@ -3,6 +3,7 @@ import { Eye, Pencil, Printer, Trash2 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
+import PaymentMethodBadge from '@/components/PaymentMethodBadge';
 import BillTemplate from '@/print/BillTemplate';
 import { formatCurrency, formatDate, todayIso } from '@/utils/formatters';
 
@@ -74,7 +75,7 @@ export default function QuickBillHistory({ toast, onNavigate }) {
           <table className="min-w-full text-sm">
             <thead className="sticky top-0 bg-slate-100/80 backdrop-blur-md text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['Invoice No', 'Patient Name', 'Date', 'Amount', 'Status', 'Actions'].map((head) => (
+                {['Invoice No', 'Patient Name', 'Date', 'Payment', 'Amount', 'Status', 'Actions'].map((head) => (
                   <th key={head} className="px-6 py-4">{head}</th>
                 ))}
               </tr>
@@ -89,6 +90,9 @@ export default function QuickBillHistory({ toast, onNavigate }) {
                   <td className="px-6 py-4 font-bold text-slate-900">{bill.invoice_no}</td>
                   <td className="px-6 py-4 font-medium">{bill.patient_name || 'Generic'}</td>
                   <td className="px-6 py-4 text-slate-500">{formatDate(bill.date)}</td>
+                  <td className="px-6 py-4">
+                    <PaymentMethodBadge method={bill.payment_method} />
+                  </td>
                   <td className="px-6 py-4 font-black text-slate-900">{formatCurrency(bill.grand_total)}</td>
                   <td className="px-6 py-4">
                     <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider ${
@@ -119,7 +123,7 @@ export default function QuickBillHistory({ toast, onNavigate }) {
               ))}
               {!bills.length && (
                 <tr>
-                  <td colSpan="6" className="px-4 py-24 text-center">
+                  <td colSpan="7" className="px-4 py-24 text-center">
                     <div className="text-slate-400 font-medium italic">No quick bill history found.</div>
                   </td>
                 </tr>
@@ -131,7 +135,7 @@ export default function QuickBillHistory({ toast, onNavigate }) {
 
       <Modal
         open={Boolean(selectedBill)}
-        title={selectedBill ? `Quick Bill Preview - ${selectedBill.invoice_no}` : 'Quick Bill Preview'}
+        title={selectedBill ? `Quick Bill Preview - ${selectedBill.invoice_no} · ${selectedBill.payment_method || 'Cash'}` : 'Quick Bill Preview'}
         onClose={() => setSelectedBill(null)}
         size="max-w-5xl"
       >

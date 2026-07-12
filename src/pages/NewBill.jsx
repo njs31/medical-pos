@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatInventoryQty, isExpiringWithin, todayIso } from '@/utils/formatters';
 import { numberToIndianWords } from '@/utils/numberToWords';
@@ -91,7 +92,30 @@ function createEmptyBill(settings) {
     invoice_no: '',
     date: todayIso(),
     discount_percent: settings?.default_discount || '',
+    payment_method: 'Cash',
     items: [],
+  };
+}
+
+function createManualItem() {
+  return {
+    id: `manual-${Date.now()}-${Math.random()}`,
+    medicine_id: null,
+    is_manual: true,
+    product_name: '',
+    pack: '',
+    hsn_code: '',
+    batch: '',
+    expiry: '',
+    qty: 1,
+    mrp: 0,
+    rate: 0,
+    purchase_rate: 0,
+    amount: 0,
+    stock_qty: null,
+    item_category: 'General',
+    discount: 0,
+    tablets_per_sheet: 0,
   };
 }
 
@@ -155,9 +179,12 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
       invoice_no: existing.invoice_no || '',
       date: existing.date || todayIso(),
       discount_percent: existing.discount_percent || '',
+      payment_method: existing.payment_method || 'Cash',
       status: existing.status || 'saved',
       items: (existing.items || []).map((item) => ({
+        id: item.medicine_id ? `inv-${item.medicine_id}-${item.id}` : `manual-${item.id}`,
         medicine_id: item.medicine_id,
+        is_manual: !item.medicine_id,
         product_name: item.product_name,
         pack: item.pack,
         hsn_code: item.hsn_code,
@@ -168,7 +195,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
         rate: Number(item.rate) || 0,
         purchase_rate: Number(item.purchase_rate) || 0,
         amount: Number(item.amount) || 0,
-        stock_qty: Number(item.stock_qty) || 0,
+        stock_qty: item.medicine_id ? Number(item.stock_qty) || 0 : null,
         item_category: item.item_category || 'Medicine',
         discount: Number(item.discount) || 0,
         tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
@@ -212,13 +239,22 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     [bill.discount_percent, bill.items],
   );
 
+  function addManualItem() {
+    setBill((prev) => ({
+      ...prev,
+      items: [...prev.items, createManualItem()],
+    }));
+  }
+
   function addItem(medicine) {
     setBill((prev) => ({
       ...prev,
       items: [
         ...prev.items,
         {
+          id: `inv-${medicine.id}-${Date.now()}`,
           medicine_id: medicine.id,
+          is_manual: false,
           product_name: medicine.name,
           pack: medicine.pack,
           hsn_code: medicine.hsn_code,
@@ -242,10 +278,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     setResults([]);
   }
 
-  function updateItem(index, key, value) {
+  function updateItem(index, keyOrPatch, value) {
     setBill((prev) => ({
       ...prev,
-      items: prev.items.map((item, idx) => (idx === index ? { ...item, [key]: value } : item)),
+      items: prev.items.map((item, idx) => {
+        if (idx !== index) return item;
+        if (typeof keyOrPatch === 'object' && keyOrPatch !== null) {
+          return { ...item, ...keyOrPatch };
+        }
+        return { ...item, [keyOrPatch]: value };
+      }),
     }));
   }
 
@@ -259,8 +301,11 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   async function saveBill(status, shouldPrint = false) {
     if (Object.keys(errors).length > 0) {
       const lossError = Object.entries(errors).find(([key]) => key.endsWith('_loss'));
+      const nameError = Object.entries(errors).find(([key]) => key.endsWith('_name'));
       if (lossError) {
         toast(`Cannot bill: ${lossError[1]}`, 'error');
+      } else if (nameError) {
+        toast(nameError[1], 'error');
       } else {
         toast('Please fix the errors before saving', 'error');
       }
@@ -322,9 +367,13 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     const globalDiscPct = Math.max(0, Math.min(100, Number(bill.discount_percent || 0)));
     const globalFactor = 1 - globalDiscPct / 100;
 
-    // Stock validation
     bill.items.forEach((item, index) => {
-      if (item.qty > item.stock_qty) {
+      if (item.is_manual && !String(item.product_name || '').trim()) {
+        errs[`item_${index}_name`] = 'Product name is required';
+      }
+
+      // Stock validation — only for inventory-linked items
+      if (!item.is_manual && item.medicine_id && item.qty > item.stock_qty) {
         errs[`item_${index}_qty`] = `You cannot bill more than what is in your current inventory. Your inventory: ${formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}`;
       }
 
@@ -429,16 +478,17 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             <h2 className="mt-1 text-xl font-extrabold text-slate-900">Inventory Search & Items</h2>
           </div>
           
-          <div className="relative flex-1 max-w-xl">
-            <input
-              type="text"
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
-              placeholder="🔍 Search by name, batch, supplier, or combination (e.g. Paracetamol)..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {results.length > 0 && (
-              <div className="absolute z-20 mt-2 max-h-[400px] w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl scale-in-center">
+          <div className="flex flex-1 max-w-2xl items-center gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
+                placeholder="🔍 Search by name, batch, supplier, or combination (e.g. Paracetamol)..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {results.length > 0 && (
+                <div className="absolute z-20 mt-2 max-h-[400px] w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl scale-in-center">
                 {(() => {
                   const counts = results.reduce((acc, r) => {
                     const k = String(r.name || '').trim().toUpperCase();
@@ -493,8 +543,16 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                     );
                   });
                 })()}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={addManualItem}
+              variant="secondary"
+              className="shrink-0 rounded-2xl border-slate-200 px-5 py-3 font-bold whitespace-nowrap"
+            >
+              + Manual items
+            </Button>
           </div>
         </div>
 
@@ -511,16 +569,69 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
             </thead>
             <tbody>
               {totals.items.map((item, index) => (
-                <tr key={`${item.medicine_id}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                <tr key={item.id || `${item.medicine_id}-${index}`} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                   <td className="px-4 py-4">{index + 1}</td>
-                  <td className="px-4 py-4 font-semibold text-slate-900">{getCategoryBadge(item.item_category || 'Medicine')}{item.product_name}</td>
-                  <td className="px-4 py-4">{item.batch}</td>
-                  <td className={`px-4 py-4 ${isExpiringWithin(item.expiry, 90) ? 'font-semibold text-warning' : ''}`}>
-                    {item.expiry}
+                  <td className="px-4 py-4 font-semibold text-slate-900">
+                    {item.is_manual ? (
+                      <div>
+                        <input
+                          className={`w-full min-w-[160px] rounded-xl border bg-white px-3 py-2 font-semibold outline-none transition focus:border-blue-500 ${
+                            errors[`item_${index}_name`] ? 'border-red-500 bg-red-50' : 'border-slate-200'
+                          }`}
+                          value={item.product_name}
+                          onChange={(e) => updateItem(index, 'product_name', e.target.value)}
+                          placeholder="Product name"
+                        />
+                        <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-600">Manual item</div>
+                      </div>
+                    ) : (
+                      <>{getCategoryBadge(item.item_category || 'Medicine')}{item.product_name}</>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
+                    {item.is_manual ? (
+                      <input
+                        className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none transition focus:border-blue-500"
+                        value={item.batch}
+                        onChange={(e) => updateItem(index, 'batch', e.target.value)}
+                        placeholder="Batch"
+                      />
+                    ) : (
+                      item.batch
+                    )}
+                  </td>
+                  <td className={`px-4 py-4 ${!item.is_manual && isExpiringWithin(item.expiry, 90) ? 'font-semibold text-warning' : ''}`}>
+                    {item.is_manual ? (
+                      <input
+                        className="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none transition focus:border-blue-500"
+                        value={item.expiry}
+                        onChange={(e) => updateItem(index, 'expiry', e.target.value)}
+                        placeholder="MM/YY"
+                      />
+                    ) : (
+                      item.expiry
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <div className="relative group">
-                      {Number(item.tablets_per_sheet) > 0 ? (
+                      {item.is_manual ? (
+                        <input
+                          className="w-20 rounded-xl border border-slate-300 px-3 py-2 font-semibold transition-all outline-none focus:border-blue-500"
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={item.qty}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) => {
+                            let v = e.target.value;
+                            if (/^0\d/.test(v)) {
+                              v = v.replace(/^0+(?=\d)/, '');
+                              e.target.value = v;
+                            }
+                            updateItem(index, 'qty', Number(v));
+                          }}
+                        />
+                      ) : Number(item.tablets_per_sheet) > 0 ? (
                         <SheetTabletInput
                           qty={item.qty}
                           tabletsPerSheet={item.tablets_per_sheet}
@@ -547,9 +658,11 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                           }}
                         />
                       )}
-                      <div className="mt-1 text-[11px] font-medium text-slate-400">
-                        Stock: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
-                      </div>
+                      {!item.is_manual && (
+                        <div className="mt-1 text-[11px] font-medium text-slate-400">
+                          Stock: {formatInventoryQty(item.stock_qty, item.tablets_per_sheet, item.item_category)}
+                        </div>
+                      )}
                       {errors[`item_${index}_qty`] && (
                         <div className="absolute left-0 top-full z-10 mt-1 w-[240px] rounded-lg bg-red-600 p-2 text-[11px] font-bold text-white shadow-xl">
                           {errors[`item_${index}_qty`]}
@@ -560,9 +673,27 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   </td>
                   <td className="px-4 py-4 font-semibold text-slate-700">
                     <div className="relative group">
-                      <div className={errors[`item_${index}_loss`] ? 'text-red-700 font-bold' : ''}>
-                        {formatCurrency(item.mrp)}
-                      </div>
+                      {item.is_manual ? (
+                        <div className={`flex items-center ${errors[`item_${index}_loss`] ? 'text-red-700 font-bold' : ''}`}>
+                          <span>₹</span>
+                          <input
+                            className="w-24 rounded-xl border border-slate-200 bg-white px-2 py-2 font-bold outline-none transition focus:border-blue-500"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={item.mrp}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0;
+                              updateItem(index, { mrp: val, rate: val });
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className={errors[`item_${index}_loss`] ? 'text-red-700 font-bold' : ''}>
+                          {formatCurrency(item.mrp)}
+                        </div>
+                      )}
                       {errors[`item_${index}_loss`] && (
                         <>
                           <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-red-600">
@@ -622,8 +753,8 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   <td colSpan="14" className="px-4 py-16 text-center">
                     <div className="mx-auto max-w-md rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10">
                       <div className="text-lg font-bold text-slate-800">No products added yet</div>
-                      <div className="mt-2 text-sm text-slate-500">
-                        Use the product search panel above to add items to the bill.
+                      <div className="text-sm text-slate-500">
+                        Search inventory above or use <span className="font-semibold">+ Manual items</span> to add products manually.
                       </div>
                     </div>
                   </td>
@@ -669,6 +800,10 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               </div>
 
               <div className="grid w-full sm:w-auto gap-3 min-w-[200px]">
+                <PaymentMethodSelector
+                  value={bill.payment_method || 'Cash'}
+                  onChange={(method) => setBill((prev) => ({ ...prev, payment_method: method }))}
+                />
                 <button
                   onClick={() => saveBill('saved', true)}
                   disabled={hasLossError}

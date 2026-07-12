@@ -258,6 +258,10 @@ export function initDatabase() {
   if (!hasPatientPhone) {
     db.exec(`ALTER TABLE bills ADD COLUMN patient_phone TEXT`);
   }
+  const hasPaymentMethod = billColumns.some((column) => column.name === 'payment_method');
+  if (!hasPaymentMethod) {
+    db.exec(`ALTER TABLE bills ADD COLUMN payment_method TEXT DEFAULT 'Cash'`);
+  }
 
   // Migration: add tablets_per_sheet column to existing databases
   const medColumns = db.prepare(`PRAGMA table_info(medicines)`).all();

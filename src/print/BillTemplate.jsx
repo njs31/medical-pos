@@ -41,6 +41,7 @@ export default function BillTemplate({ bill }) {
           <div>Patient Phone: <b>{bill.patient_phone || '-'}</b></div>
           <div>Doctor Name: <b>{bill.doctor_name || settings.default_doctor || '-'}</b></div>
           <div>Time: <b>{formatBillTime(bill.created_at)}</b></div>
+          <div>Payment: <b>{bill.payment_method || 'Cash'}</b></div>
         </div>
 
         {/* Items Table — full width */}
