@@ -14,6 +14,7 @@ import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
 import QuickBill from '@/pages/QuickBill';
 import QuickBillHistory from '@/pages/QuickBillHistory';
+import StockTimeline from '@/pages/StockTimeline';
 
 function useHashRoute() {
   const getRoute = () => window.location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -163,6 +164,9 @@ export default function App() {
     }
     if (route === 'emergency-history') {
       return <EmergencyBillHistory toast={toast} onNavigate={navigate} />;
+    }
+    if (route === 'stock-timeline') {
+      return <StockTimeline toast={toast} />;
     }
     return <Dashboard summary={dashboardSummary} onNavigate={navigate} onReprint={(id) => window.api.bills.print(id)} />;
   }, [dashboardSummary, pageState.filter, pageState.editBillId, route, persistentBill, shopSettings]);

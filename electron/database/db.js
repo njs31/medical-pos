@@ -251,6 +251,18 @@ export function initDatabase() {
       backup_device_id TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS stock_checkpoints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message TEXT NOT NULL,
+      source TEXT DEFAULT 'system',
+      added_count INTEGER DEFAULT 0,
+      removed_count INTEGER DEFAULT 0,
+      changed_count INTEGER DEFAULT 0,
+      snapshot_json TEXT NOT NULL,
+      diff_json TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const billColumns = db.prepare(`PRAGMA table_info(bills)`).all();

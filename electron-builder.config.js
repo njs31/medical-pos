@@ -5,11 +5,16 @@ export default {
     output: 'release',
   },
   files: ['dist/**/*', 'out/**/*', 'package.json'],
+  asarUnpack: ['**/supplierFileWorker.mjs'],
   extraResources: [
     {
       from: 'build/seed-data',
       to: 'seed-data',
       filter: ['**/*'],
+    },
+    {
+      from: 'electron/services/supplierFileWorker.mjs',
+      to: 'supplierFileWorker.mjs',
     },
   ],
   extraMetadata: {

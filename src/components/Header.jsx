@@ -3,6 +3,7 @@ import {
   CloudUpload,
   FileClock,
   FilePlus2,
+  GitCommitHorizontal,
   LayoutDashboard,
   Package2,
   Settings as SettingsIcon,
@@ -22,12 +23,14 @@ const titles = {
   'quick-history': 'Quick History',
   'emergency-bill': 'Emergency Bill',
   'emergency-history': 'Emergency History',
+  'stock-timeline': 'Stock Timeline',
 };
 
 const navItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'new-bill', label: 'New Bill', icon: FilePlus2 },
   { key: 'inventory', label: 'Inventory', icon: Package2 },
+  { key: 'stock-timeline', label: 'Stock Timeline', icon: GitCommitHorizontal },
   { key: 'bill-history', label: 'Bill History', icon: FileClock },
   { key: 'reports', label: 'Reports', icon: ClipboardList },
   { key: 'quick-bill', label: 'Quick Bill', icon: FilePlus2 },

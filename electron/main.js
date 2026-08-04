@@ -28,6 +28,13 @@ import {
   searchMedicines,
   updateMedicine,
 } from './database/medicines.js';
+import {
+  createManualStockCheckpoint,
+  getStockCheckpointById,
+  listStockCheckpoints,
+  restoreStockCheckpoint,
+} from './database/stockTimeline.js';
+import { applySupplierImport, parseSupplierFile } from './services/supplierImport.js';
 import { getSettings, saveSettings } from './database/settings.js';
 import { backupToSpacetimeDB, loadSpacetimeTokenFromCli } from './services/spacetimeBackup.js';
 import {
@@ -416,6 +423,35 @@ ipcMain.handle('medicines:update', async (_, id, data) => updateMedicine(id, dat
 ipcMain.handle('medicines:delete', async (_, id) => deleteMedicine(id));
 ipcMain.handle('medicines:adjustStock', async (_, id, qty) => adjustMedicineStock(id, qty));
 ipcMain.handle('medicines:importCsv', async (_, content) => importMedicines(parseCsv(content)));
+ipcMain.handle('stockTimeline:list', async (_, limit) => listStockCheckpoints(limit));
+ipcMain.handle('stockTimeline:getById', async (_, id) => getStockCheckpointById(id));
+ipcMain.handle('stockTimeline:create', async (_, message) => createManualStockCheckpoint(message));
+ipcMain.handle('stockTimeline:restore', async (_, id) => restoreStockCheckpoint(id));
+ipcMain.handle('supplierImport:pickAndParse', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Import Supplier Stock File',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Supplier Files', extensions: ['pdf', 'csv', 'xlsx', 'xls'] },
+      { name: 'PDF', extensions: ['pdf'] },
+      { name: 'CSV', extensions: ['csv'] },
+      { name: 'Excel', extensions: ['xlsx', 'xls'] },
+    ],
+  });
+  if (canceled || !filePaths?.length) return { success: false, canceled: true };
+  try {
+    return await parseSupplierFile(filePaths[0]);
+  } catch (error) {
+    return { success: false, message: error?.message || 'Failed to parse supplier file' };
+  }
+});
+ipcMain.handle('supplierImport:apply', async (_, rows, options) => {
+  try {
+    return applySupplierImport(rows, options || {});
+  } catch (error) {
+    return { success: false, message: error?.message || 'Failed to import stock' };
+  }
+});
 ipcMain.handle('system:exportDatabase', async () => {
   try {
     const dbPath = path.join(app.getPath('userData'), 'pharmacy-pos.sqlite');

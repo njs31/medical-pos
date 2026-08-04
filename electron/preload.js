@@ -12,6 +12,16 @@ contextBridge.exposeInMainWorld('api', {
     exportDatabase: () => ipcRenderer.invoke('system:exportDatabase'),
     importDatabase: () => ipcRenderer.invoke('system:importDatabase'),
   },
+  stockTimeline: {
+    list: (limit) => ipcRenderer.invoke('stockTimeline:list', limit),
+    getById: (id) => ipcRenderer.invoke('stockTimeline:getById', id),
+    create: (message) => ipcRenderer.invoke('stockTimeline:create', message),
+    restore: (id) => ipcRenderer.invoke('stockTimeline:restore', id),
+  },
+  supplierImport: {
+    pickAndParse: () => ipcRenderer.invoke('supplierImport:pickAndParse'),
+    apply: (rows, options) => ipcRenderer.invoke('supplierImport:apply', rows, options),
+  },
   bills: {
     create: (billData) => ipcRenderer.invoke('bills:create', billData),
     update: (id, billData) => ipcRenderer.invoke('bills:update', id, billData),

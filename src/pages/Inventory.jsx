@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Copy, Download, Layers, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, FileUp, Layers, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LoginModal from '@/components/ui/LoginModal';
@@ -389,6 +389,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [bulkItemCategory, setBulkItemCategory] = useState('Medicine');
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkActiveProductRow, setBulkActiveProductRow] = useState(null);
+  const [supplierImportOpen, setSupplierImportOpen] = useState(false);
+  const [supplierImportMeta, setSupplierImportMeta] = useState({ file_name: '', format: '', supplier_name: '' });
+  const [supplierImportRows, setSupplierImportRows] = useState([]);
+  const [supplierImportSaving, setSupplierImportSaving] = useState(false);
   const bulkColumnKeys = useMemo(() => getBulkColumnKeys(bulkItemCategory), [bulkItemCategory]);
   const handleBulkNavigate = useCallback(
     (e, rowIndex, colKey) => {
@@ -731,6 +735,54 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
   }
 
+  function openSupplierImport() {
+    requireAuth(async () => {
+      const result = await window.api.supplierImport.pickAndParse();
+      if (!result || result.canceled) return;
+      if (!result.success) {
+        toast(result.message || 'Could not read supplier file', 'error');
+        return;
+      }
+      setSupplierImportMeta({
+        file_name: result.file_name || '',
+        format: result.format || '',
+        supplier_name: result.supplier_name || '',
+      });
+      setSupplierImportRows(result.items || []);
+      setSupplierImportOpen(true);
+    });
+  }
+
+  function updateSupplierImportRow(index, patch) {
+    setSupplierImportRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  async function confirmSupplierImport() {
+    const selected = supplierImportRows.filter((row) => row.selected !== false && String(row.name || '').trim());
+    if (!selected.length) {
+      toast('Select at least one medicine to import', 'error');
+      return;
+    }
+    setSupplierImportSaving(true);
+    try {
+      const result = await window.api.supplierImport.apply(selected, {
+        supplier_name: supplierImportMeta.supplier_name,
+      });
+      if (!result?.success) {
+        toast(result?.message || 'Import failed', 'error');
+        return;
+      }
+      toast(`Imported ${result.total} items (${result.added} new, ${result.updated} updated)`);
+      setSupplierImportOpen(false);
+      setSupplierImportRows([]);
+      load();
+    } catch (error) {
+      toast(error?.message || 'Import failed', 'error');
+    } finally {
+      setSupplierImportSaving(false);
+    }
+  }
+
   function changeSort(key) {
     if (sortKey === key) setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
     else {
@@ -786,6 +838,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </Button>
           <Button variant="secondary" onClick={handleExportDatabase}>
             <Download size={16} className="mr-2" /> Export Backup
+          </Button>
+          <Button variant="secondary" onClick={openSupplierImport}>
+            <FileUp size={16} className="mr-2" /> Import Supplier File
           </Button>
           <Button onClick={openAddModal}>
             <Plus size={16} className="mr-2" /> Add Stock
@@ -940,7 +995,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                           Add another batch (same product, new batch/expiry/stock)
                         </div>
                       </div>
-                      <Button variant="danger" className="px-3 py-2" onClick={() => remove(item.id)}>
+                      <Button variant="danger" className="px-3 py-2" onClick={() => remove(item.id)} title="Delete">
                         <Trash2 size={14} />
                       </Button>
                     </div>
@@ -1327,6 +1382,256 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={supplierImportOpen}
+        title="Confirm Supplier Stock Import"
+        viewportInset={4}
+        onClose={() => { if (!supplierImportSaving) setSupplierImportOpen(false); }}
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-slate-500">
+              {supplierImportRows.filter((r) => r.selected !== false).length} of {supplierImportRows.length} selected
+              {supplierImportMeta.file_name ? ` · ${supplierImportMeta.file_name}` : ''}
+              {supplierImportMeta.format ? ` · ${String(supplierImportMeta.format).toUpperCase()}` : ''}
+            </div>
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" disabled={supplierImportSaving} onClick={() => setSupplierImportOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="button" disabled={supplierImportSaving} onClick={confirmSupplierImport}>
+                {supplierImportSaving ? 'Importing...' : 'Confirm & Push to Inventory'}
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex h-full min-h-0 flex-col gap-4">
+          <div className="grid shrink-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
+            <Input
+              label="Supplier"
+              value={supplierImportMeta.supplier_name}
+              onChange={(e) => {
+                const supplier_name = e.target.value;
+                setSupplierImportMeta((prev) => ({ ...prev, supplier_name }));
+                setSupplierImportRows((prev) => prev.map((row) => ({ ...row, supplier_name })));
+              }}
+              placeholder="Supplier / distributor name"
+            />
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={() => setSupplierImportRows((prev) => prev.map((row) => ({ ...row, selected: true })))}
+              >
+                Select All
+              </Button>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                onClick={() => setSupplierImportRows((prev) => prev.map((row) => ({ ...row, selected: false })))}
+              >
+                Clear Selection
+              </Button>
+            </div>
+          </div>
+
+          {supplierImportRows[0]?.name ? (
+            <div className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <span className="font-bold">Detected {supplierImportRows.length} medicines.</span>
+              {' '}Edit any field below before confirming.
+              {' '}First row: <span className="font-semibold">{supplierImportRows[0].name}</span>
+              {supplierImportRows[0].batch ? ` · Batch ${supplierImportRows[0].batch}` : ''}
+              {supplierImportRows[0].expiry ? ` · Exp ${supplierImportRows[0].expiry}` : ''}
+              {supplierImportRows[0].stock_qty != null ? ` · Qty ${supplierImportRows[0].stock_qty}` : ''}
+              {supplierImportRows[0].mrp ? ` · MRP ${supplierImportRows[0].mrp}` : ''}
+            </div>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200">
+            <table className="min-w-[1400px] w-full text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-100 text-left text-[10px] uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="sticky left-0 z-20 bg-slate-100 px-2 py-2">Use</th>
+                  <th className="px-2 py-2">#</th>
+                  <th className="sticky left-8 z-20 min-w-[180px] bg-slate-100 px-2 py-2">Product *</th>
+                  <th className="min-w-[70px] px-2 py-2">Rack</th>
+                  <th className="min-w-[90px] px-2 py-2">Batch</th>
+                  <th className="min-w-[70px] px-2 py-2">Expiry</th>
+                  <th className="min-w-[80px] px-2 py-2">MRP</th>
+                  <th className="min-w-[80px] px-2 py-2">Cost</th>
+                  <th className="min-w-[70px] px-2 py-2">Qty *</th>
+                  <th className="min-w-[70px] px-2 py-2">Pack</th>
+                  <th className="min-w-[90px] px-2 py-2">HSN</th>
+                  <th className="min-w-[70px] px-2 py-2">Tabs</th>
+                  <th className="min-w-[90px] px-2 py-2">Type</th>
+                  <th className="min-w-[100px] px-2 py-2">Category</th>
+                  <th className="min-w-[140px] px-2 py-2">Combo</th>
+                  <th className="min-w-[70px] px-2 py-2">Low</th>
+                  <th className="min-w-[90px] px-2 py-2">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierImportRows.map((row, index) => {
+                  const rowBg = row.selected === false ? 'bg-slate-100' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                  return (
+                    <tr key={`import-row-${index}`} className={`${rowBg} ${row.selected === false ? 'opacity-60' : ''}`}>
+                      <td className={`sticky left-0 z-10 px-2 py-1.5 ${rowBg}`}>
+                        <input
+                          type="checkbox"
+                          checked={row.selected !== false}
+                          onChange={(e) => updateSupplierImportRow(index, { selected: e.target.checked })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 font-semibold text-slate-500">{index + 1}</td>
+                      <td className={`sticky left-8 z-10 min-w-[180px] px-2 py-1.5 ${rowBg}`}>
+                        <input
+                          className={`${BULK_INPUT} font-semibold`}
+                          value={row.name || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { name: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          value={row.rack_number || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { rack_number: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          value={row.batch || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { batch: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          placeholder="MM/YY"
+                          value={row.expiry || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { expiry: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={BULK_INPUT}
+                          value={row.mrp ?? ''}
+                          onChange={(e) => updateSupplierImportRow(index, { mrp: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className={BULK_INPUT}
+                          value={row.purchase_rate ?? row.rate ?? ''}
+                          onChange={(e) => updateSupplierImportRow(index, { purchase_rate: e.target.value, rate: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className={BULK_INPUT}
+                          value={row.stock_qty ?? ''}
+                          onChange={(e) => updateSupplierImportRow(index, { stock_qty: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          value={row.pack || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { pack: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          value={row.hsn_code || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { hsn_code: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className={BULK_INPUT}
+                          value={row.tablets_per_sheet ?? ''}
+                          onChange={(e) => updateSupplierImportRow(index, { tablets_per_sheet: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          className={BULK_INPUT}
+                          value={row.product_type || 'Generic'}
+                          onChange={(e) => updateSupplierImportRow(index, { product_type: e.target.value })}
+                        >
+                          <option value="Generic">Generic</option>
+                          <option value="Ethical">Ethical</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <select
+                          className={BULK_INPUT}
+                          value={row.item_category || 'Medicine'}
+                          onChange={(e) => updateSupplierImportRow(index, { item_category: e.target.value })}
+                        >
+                          <option value="Medicine">Medicine</option>
+                          <option value="General">General</option>
+                          <option value="Surgical">Surgical</option>
+                        </select>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          className={BULK_INPUT}
+                          placeholder="Salt names"
+                          value={row.combination || ''}
+                          onChange={(e) => updateSupplierImportRow(index, { combination: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className={BULK_INPUT}
+                          value={row.reorder_level ?? ''}
+                          onChange={(e) => updateSupplierImportRow(index, { reorder_level: e.target.value })}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            row.action === 'update'
+                              ? 'bg-amber-100 text-amber-800'
+                              : row.action === 'add_batch'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                          title={row.match_label}
+                        >
+                          {row.action === 'update' ? 'UPDATE' : row.action === 'add_batch' ? 'NEW BATCH' : 'NEW'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

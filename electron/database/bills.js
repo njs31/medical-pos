@@ -1,5 +1,6 @@
 import { getDb } from './db.js';
 import { getSettings } from './settings.js';
+import { runWithStockCheckpoint } from './stockTimeline.js';
 
 function nextInvoiceNumber() {
   const settings = getSettings();
@@ -58,35 +59,37 @@ export function createBill(billData) {
 
   const reduceStock = database.prepare('UPDATE medicines SET stock_qty = stock_qty - ? WHERE id = ?');
 
-  const tx = database.transaction(() => {
-    const billInfo = insertBill.run({
-      sgst_total: 0,
-      cgst_total: 0,
-      payment_method: billData.payment_method || 'Cash',
-      ...billData,
-      invoice_no: invoiceNo,
-      total_items: billData.items.length,
+  return runWithStockCheckpoint(`Sale ${invoiceNo} — stock deducted`, 'bill', () => {
+    const tx = database.transaction(() => {
+      const billInfo = insertBill.run({
+        sgst_total: 0,
+        cgst_total: 0,
+        ...billData,
+        invoice_no: invoiceNo,
+        total_items: billData.items.length,
+        payment_method: billData.payment_method || 'Cash',
+      });
+
+      for (const item of billData.items) {
+        insertItem.run({
+          sgst_percent: 0,
+          cgst_percent: 0,
+          discount: item.discount || 0,
+          tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+          item_category: item.item_category || 'Medicine',
+          ...item,
+          bill_id: billInfo.lastInsertRowid,
+          medicine_id: item.medicine_id || null,
+        });
+        if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
+      }
+
+      return billInfo.lastInsertRowid;
     });
 
-    for (const item of billData.items) {
-      insertItem.run({
-        sgst_percent: 0,
-        cgst_percent: 0,
-        discount: item.discount || 0,
-        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
-        item_category: item.item_category || 'Medicine',
-        ...item,
-        bill_id: billInfo.lastInsertRowid,
-        medicine_id: item.medicine_id || null,
-      });
-      if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
-    }
-
-    return billInfo.lastInsertRowid;
+    const billId = tx();
+    return getBillById(billId);
   });
-
-  const billId = tx();
-  return getBillById(billId);
 }
 
 export function getBills(filters = {}) {
@@ -197,53 +200,63 @@ export function updateBill(id, billData) {
   const deleteItems = database.prepare('DELETE FROM bill_items WHERE bill_id = ?');
   const restoreStock = database.prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?');
   const reduceStock = database.prepare('UPDATE medicines SET stock_qty = stock_qty - ? WHERE id = ?');
+  const invoiceLabel = billData.invoice_no || `#${id}`;
 
-  const tx = database.transaction(() => {
-    for (const item of oldItems) {
-      if (item.medicine_id) restoreStock.run(item.qty, item.medicine_id);
-    }
+  return runWithStockCheckpoint(`Bill ${invoiceLabel} updated — stock adjusted`, 'bill_update', () => {
+    const tx = database.transaction(() => {
+      for (const item of oldItems) {
+        if (item.medicine_id) restoreStock.run(item.qty, item.medicine_id);
+      }
 
-    deleteItems.run(id);
+      deleteItems.run(id);
 
-    updateBillStmt.run({
-      sgst_total: 0,
-      cgst_total: 0,
-      payment_method: billData.payment_method || 'Cash',
-      ...billData,
-      id,
-      total_items: billData.items.length,
+      updateBillStmt.run({
+        sgst_total: 0,
+        cgst_total: 0,
+        ...billData,
+        id,
+        total_items: billData.items.length,
+        payment_method: billData.payment_method || 'Cash',
+      });
+
+      for (const item of billData.items) {
+        insertItem.run({
+          sgst_percent: 0,
+          cgst_percent: 0,
+          discount: item.discount || 0,
+          tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
+          item_category: item.item_category || 'Medicine',
+          ...item,
+          bill_id: id,
+          medicine_id: item.medicine_id || null,
+        });
+        if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
+      }
     });
 
-    for (const item of billData.items) {
-      insertItem.run({
-        sgst_percent: 0,
-        cgst_percent: 0,
-        discount: item.discount || 0,
-        tablets_per_sheet: Number(item.tablets_per_sheet) || 0,
-        item_category: item.item_category || 'Medicine',
-        ...item,
-        bill_id: id,
-        medicine_id: item.medicine_id || null,
-      });
-      if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
-    }
+    tx();
+    return getBillById(id);
   });
-
-  tx();
-  return getBillById(id);
 }
 
 export function deleteBill(id) {
+  const bill = getDb().prepare('SELECT invoice_no FROM bills WHERE id = ?').get(id);
   const items = getBillItems(id);
-  const restore = getDb().prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?');
-  const tx = getDb().transaction(() => {
-    for (const item of items) {
-      if (item.medicine_id) restore.run(item.qty, item.medicine_id);
-    }
-    getDb().prepare('DELETE FROM bills WHERE id = ?').run(id);
-  });
-  tx();
-  return { success: true };
+  return runWithStockCheckpoint(
+    `Bill ${bill?.invoice_no || `#${id}`} deleted — stock restored`,
+    'bill_delete',
+    () => {
+      const restore = getDb().prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?');
+      const tx = getDb().transaction(() => {
+        for (const item of items) {
+          if (item.medicine_id) restore.run(item.qty, item.medicine_id);
+        }
+        getDb().prepare('DELETE FROM bills WHERE id = ?').run(id);
+      });
+      tx();
+      return { success: true };
+    },
+  );
 }
 
 export function getDashboardSummary() {
