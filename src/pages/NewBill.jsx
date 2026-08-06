@@ -508,7 +508,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                             <span>{getCategoryBadge(item.item_category || 'Medicine')}{item.name}</span>
                             <span
                               className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[10px] font-black text-slate-600"
-                              title={item.product_type || 'Generic'}
+                              title={item.product_type || 'Ethical'}
                             >
                               {getProductTypeShortLabel(item.product_type)}
                             </span>

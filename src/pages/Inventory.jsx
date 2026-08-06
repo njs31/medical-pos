@@ -29,7 +29,7 @@ const initialForm = {
   supplier_name: '',
   item_category: 'Medicine',
   rack_number: '',
-  product_type: 'Generic',
+  product_type: 'Ethical',
   combination: '',
 };
 
@@ -42,7 +42,7 @@ const initialBulkRow = {
   purchase_cost_input: '',
   stock_qty: '',
   tablets_per_sheet: '',
-  product_type: 'Generic',
+  product_type: 'Ethical',
   combination: '',
 };
 
@@ -116,7 +116,7 @@ function buildMedicinePayload(form, itemCategory) {
     item_category: itemCategory,
     rack_number: String(form.rack_number || '').trim(),
     product_type: itemCategory === 'Medicine'
-      ? String(form.product_type || 'Generic').trim() || 'Generic'
+      ? String(form.product_type || 'Ethical').trim() || 'Ethical'
       : '',
     combination: parseCombinations(form.combination).join(', '),
   };
@@ -582,7 +582,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       rack_number: item.rack_number || '',
       tablets_per_sheet: item.tablets_per_sheet ? String(item.tablets_per_sheet) : '',
       combination: item.combination || '',
-      product_type: item.product_type || 'Generic',
+      product_type: item.product_type || 'Ethical',
     });
   }
 
@@ -660,7 +660,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         supplier_name: item.supplier_name || '',
         item_category: item.item_category || 'Medicine',
         rack_number: item.rack_number || '',
-        product_type: item.product_type || 'Generic',
+        product_type: item.product_type || 'Ethical',
         combination: item.combination || '',
         batch: '',
         expiry: '',
@@ -1107,11 +1107,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <Input
               as="select"
               label="Product Type"
-              value={form.product_type || 'Generic'}
+              value={form.product_type || 'Ethical'}
               onChange={(e) => setForm((prev) => ({ ...prev, product_type: e.target.value }))}
             >
-              <option value="Generic">Generic</option>
               <option value="Ethical">Ethical</option>
+              <option value="Generic">Generic</option>
             </Input>
           )}
 
@@ -1349,12 +1349,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                           <select
                             id={`bulk-cell-${index}-product_type`}
                             className={BULK_INPUT}
-                            value={row.product_type || 'Generic'}
+                            value={row.product_type || 'Ethical'}
                             onChange={(e) => updateBulkRow(index, { product_type: e.target.value })}
                             onKeyDown={(e) => handleBulkNavigate(e, index, 'product_type')}
                           >
-                            <option value="Generic">Generic</option>
                             <option value="Ethical">Ethical</option>
+                            <option value="Generic">Generic</option>
                           </select>
                         </td>
                       </>
@@ -1579,11 +1579,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                       <td className="px-2 py-1.5">
                         <select
                           className={BULK_INPUT}
-                          value={row.product_type || 'Generic'}
+                          value={row.product_type || 'Ethical'}
                           onChange={(e) => updateSupplierImportRow(index, { product_type: e.target.value })}
                         >
-                          <option value="Generic">Generic</option>
                           <option value="Ethical">Ethical</option>
+                          <option value="Generic">Generic</option>
                         </select>
                       </td>
                       <td className="px-2 py-1.5">

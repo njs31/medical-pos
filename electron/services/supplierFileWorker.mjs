@@ -133,7 +133,7 @@ function rowFromMappedValues(values, mapping, meta = {}) {
     supplier_name: get('supplier_name') || meta.supplier_name || EMPTY,
     item_category: 'Medicine',
     rack_number: get('rack_number'),
-    product_type: 'Generic',
+    product_type: 'Ethical',
     combination: EMPTY,
   };
 }
@@ -194,7 +194,7 @@ function parsePdfInvoiceLines(text, meta = {}) {
       supplier_name: meta.supplier_name || EMPTY,
       item_category: 'Medicine',
       rack_number: match[1],
-      product_type: 'Generic',
+      product_type: 'Ethical',
       combination: EMPTY,
     };
     if (!item.name || item.stock_qty <= 0) continue;

@@ -346,7 +346,7 @@ function parseCsv(content) {
       supplier_name: item.supplier_name || item.supplier || '',
       item_category: item.item_category || item.category || 'Medicine',
       rack_number: item.rack_number || item.rack || '',
-      product_type: item.product_type || item.generic_ethical || item.type || 'Generic',
+      product_type: item.product_type || item.generic_ethical || item.type || 'Ethical',
       combination: item.combination || item.composition || item.salt || '',
     };
   });

@@ -310,14 +310,14 @@ export function initDatabase() {
 
   const hasProductType = medColumns.some((column) => column.name === 'product_type');
   if (!hasProductType) {
-    db.exec(`ALTER TABLE medicines ADD COLUMN product_type TEXT DEFAULT 'Generic'`);
+    db.exec(`ALTER TABLE medicines ADD COLUMN product_type TEXT DEFAULT 'Ethical'`);
   }
 
   const hasCombination = medColumns.some((column) => column.name === 'combination');
   if (!hasCombination) {
     db.exec(`ALTER TABLE medicines ADD COLUMN combination TEXT DEFAULT ''`);
   }
-  db.exec(`UPDATE medicines SET product_type = 'Generic' WHERE product_type IS NULL OR TRIM(product_type) = ''`);
+  db.exec(`UPDATE medicines SET product_type = 'Ethical' WHERE product_type IS NULL OR TRIM(product_type) = ''`);
   db.exec(`
     UPDATE medicines
     SET reorder_level = CASE

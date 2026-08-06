@@ -448,7 +448,7 @@ export function applySupplierImport(rows = [], options = {}) {
           supplier_name: String(row.supplier_name || supplierFallback || EMPTY).trim(),
           item_category: row.item_category || "Medicine",
           rack_number: String(row.rack_number || EMPTY).trim(),
-          product_type: row.product_type || "Generic",
+          product_type: row.product_type || "Ethical",
           combination: String(row.combination || EMPTY).trim(),
         };
 
