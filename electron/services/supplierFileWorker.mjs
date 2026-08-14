@@ -1,6 +1,4 @@
 import fs from 'node:fs/promises';
-import fsSync from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 
 const EMPTY = String();
@@ -299,104 +297,23 @@ async function parseExcel(filePath, meta) {
 }
 
 async function parsePdf(filePath, meta) {
-  // #region agent log
-  const debugLogPaths = [
-    '/Users/jai/Desktop/medical-pos/.cursor/debug-49bbd8.log',
-    path.join(os.tmpdir(), 'debug-49bbd8.log'),
-  ];
-  const __dbg = (hypothesisId, message, data = {}) => {
-    const payload = {
-      sessionId: '49bbd8',
-      runId: process.env.SUPPLIER_IMPORT_DEBUG_RUN || 'post-fix',
-      hypothesisId,
-      location: 'supplierFileWorker.mjs:parsePdf',
-      message,
-      data: {
-        platform: process.platform,
-        arch: process.arch,
-        domMatrixType: typeof globalThis.DOMMatrix,
-        ...data,
-      },
-      timestamp: Date.now(),
-    };
-    const line = `${JSON.stringify(payload)}\n`;
-    for (const logPath of debugLogPaths) {
-      try {
-        fsSync.appendFileSync(logPath, line);
-      } catch {
-        /* ignore */
-      }
-    }
-    fetch('http://127.0.0.1:7511/ingest/373a3f4c-02d1-4fe3-8f88-d3b0d1e64c72', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '49bbd8' },
-      body: JSON.stringify(payload),
-    }).catch(() => {});
-  };
-  // #endregion
-
-  // #region agent log
-  if (process.env.SUPPLIER_IMPORT_SIMULATE_NO_CANVAS === '1') {
-    const Module = await import('node:module');
-    const proto = Module.default?.prototype || Module.prototype;
-    const origRequire = proto.require;
-    proto.require = function patchedRequire(id) {
-      if (String(id).includes('@napi-rs/canvas')) {
-        throw new Error('simulated missing canvas (Windows packaging)');
-      }
-      return origRequire.apply(this, arguments);
-    };
-  }
-  // #endregion
-
   ensurePdfDomPolyfills();
 
-  // #region agent log
-  let canvasLoad = { ok: false, error: null };
   try {
     const canvas = await import('@napi-rs/canvas');
-    canvasLoad = { ok: true, error: null };
     if (canvas.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix;
     if (canvas.ImageData) globalThis.ImageData = canvas.ImageData;
     if (canvas.Path2D) globalThis.Path2D = canvas.Path2D;
-  } catch (error) {
-    canvasLoad = { ok: false, error: error?.message || String(error) };
+  } catch {
     ensurePdfDomPolyfills();
   }
-  __dbg('A', 'dom ready before pdf-parse', {
-    canvasOk: canvasLoad.ok,
-    canvasError: canvasLoad.error,
-  });
-  // #endregion
 
-  try {
-    const mod = await import('pdf-parse');
-    // #region agent log
-    __dbg('B', 'pdf-parse imported', {
-      hasPDFParse: Boolean(mod.PDFParse || mod.default?.PDFParse || mod.default),
-    });
-    // #endregion
-    const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
-    const buffer = await fs.readFile(filePath);
-    // #region agent log
-    __dbg('C', 'starting getText', { fileBytes: buffer.length, fileName: path.basename(filePath) });
-    // #endregion
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    const items = parsePdfInvoiceLines(result?.text || EMPTY, meta);
-    // #region agent log
-    __dbg('D', 'pdf parse success', { textLen: (result?.text || EMPTY).length, itemCount: items.length });
-    // #endregion
-    return items;
-  } catch (error) {
-    // #region agent log
-    __dbg('E', 'pdf parse failed', {
-      error: error?.message || String(error),
-      canvasOk: canvasLoad.ok,
-    });
-    // #endregion
-    throw error;
-  }
+  const mod = await import('pdf-parse');
+  const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
+  const buffer = await fs.readFile(filePath);
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  return parsePdfInvoiceLines(result?.text || EMPTY, meta);
 }
 
 const filePath = process.argv[2];
