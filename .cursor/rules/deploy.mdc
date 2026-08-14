@@ -1,0 +1,25 @@
+---
+description: When the user says deploy, run the Windows release workflow (version, commit, push, publish).
+alwaysApply: true
+---
+
+# Deploy trigger
+
+When the user says **deploy**, **release**, **publish**, or **ship** the Windows app update:
+
+1. Read and follow `.cursor/skills/deploy-windows/SKILL.md`
+2. Run the full sequence (do not only give instructions):
+
+```bash
+npm version patch --no-git-tag-version    # 1.8.1 → 1.8.2 (bug fixes)
+# or
+npm version minor --no-git-tag-version    # 1.8.x → 1.9.0 (new features)
+
+git add .
+git commit -m "changes"
+git push origin main
+
+npm run dist:win -- --publish always
+```
+
+Default to **patch** unless the user asks for **minor**. Report the new version and publish result when done.

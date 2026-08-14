@@ -2,45 +2,53 @@ import { fork } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 
-function buildNodePath(workerPath) {
-  const parts = [];
-  if (process.env.NODE_PATH) parts.push(process.env.NODE_PATH);
+function resolveSupplierNodeModules(workerPath) {
+  const candidates = [];
 
-  // Packaged Electron: modules live under resources/app.asar(.unpacked)/node_modules
   if (process.resourcesPath) {
-    parts.push(path.join(process.resourcesPath, "app.asar.unpacked", "node_modules"));
-    parts.push(path.join(process.resourcesPath, "app", "node_modules"));
+    candidates.push(path.join(process.resourcesPath, "app.asar.unpacked", "node_modules"));
+    candidates.push(path.join(process.resourcesPath, "app", "node_modules"));
   }
 
-  // Dev / nearby resolution from worker file
   const workerDir = path.dirname(workerPath);
-  parts.push(path.join(workerDir, "node_modules"));
-  parts.push(path.join(process.cwd(), "node_modules"));
-
-  // Walk up a few levels from worker for monorepo/dev layouts
   let cursor = workerDir;
-  for (let i = 0; i < 5; i += 1) {
-    const candidate = path.join(cursor, "node_modules");
-    if (fs.existsSync(candidate)) parts.push(candidate);
+  for (let i = 0; i < 6; i += 1) {
+    candidates.push(path.join(cursor, "node_modules"));
     const parent = path.dirname(cursor);
     if (parent === cursor) break;
     cursor = parent;
   }
 
-  return [...new Set(parts)].join(path.delimiter);
+  candidates.push(path.join(process.cwd(), "node_modules"));
+
+  for (const candidate of [...new Set(candidates)]) {
+    if (
+      fs.existsSync(path.join(candidate, "pdf-parse", "package.json")) ||
+      fs.existsSync(path.join(candidate, "xlsx", "package.json"))
+    ) {
+      return candidate;
+    }
+  }
+
+  return "";
 }
 
 /**
  * Runs PDF/Excel parsing in a separate Node process so xlsx/pdf-parse
  * are never bundled into the Electron main vite chunk.
+ *
+ * Uses ELECTRON_RUN_AS_NODE (plain Node), which cannot read asar — so
+ * pdf-parse/xlsx/pdfjs must be asar-unpacked and passed via SUPPLIER_IMPORT_NODE_MODULES.
  */
 export function parseBinarySupplierFile(filePath, ext, workerPath) {
   return new Promise((resolve, reject) => {
+    const nodeModules = resolveSupplierNodeModules(workerPath);
     const child = fork(workerPath, [filePath, ext], {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: "1",
-        NODE_PATH: buildNodePath(workerPath),
+        SUPPLIER_IMPORT_NODE_MODULES: nodeModules,
+        NODE_PATH: [nodeModules, process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
       },
       stdio: ["pipe", "pipe", "pipe", "ipc"],
     });

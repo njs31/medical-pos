@@ -1,7 +1,55 @@
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 const EMPTY = String();
+
+/**
+ * Plain Node (ELECTRON_RUN_AS_NODE) ignores NODE_PATH for ESM imports and cannot
+ * read app.asar. Resolve packages from the unpacked node_modules path passed by the bridge.
+ */
+async function importDependency(packageName) {
+  const roots = [
+    process.env.SUPPLIER_IMPORT_NODE_MODULES,
+    path.join(process.cwd(), 'node_modules'),
+  ].filter(Boolean);
+
+  for (const root of roots) {
+    const pkgJsonPath = path.join(root, packageName, 'package.json');
+    if (!fsSync.existsSync(pkgJsonPath)) continue;
+    try {
+      const require = createRequire(pkgJsonPath);
+      return require(packageName);
+    } catch {
+      try {
+        const pkg = JSON.parse(fsSync.readFileSync(pkgJsonPath, 'utf8'));
+        const entry =
+          pkg.module ||
+          pkg.exports?.['.']?.import ||
+          pkg.exports?.['.']?.default ||
+          pkg.exports?.['.'] ||
+          pkg.main ||
+          'index.js';
+        const entryPath = path.resolve(path.dirname(pkgJsonPath), Array.isArray(entry) ? entry[0] : entry);
+        return await import(pathToFileURL(entryPath).href);
+      } catch {
+        /* try next root */
+      }
+    }
+  }
+
+  try {
+    return await import(packageName);
+  } catch (error) {
+    throw new Error(
+      `Missing dependency "${packageName}". ` +
+        `Looked in: ${roots.join(', ') || '(none)'}. ` +
+        `${error?.message || error}`,
+    );
+  }
+}
 
 function ensurePdfDomPolyfills() {
   if (typeof globalThis.DOMMatrix !== 'function') {
@@ -283,7 +331,7 @@ function parsePdfInvoiceLines(text, meta = {}) {
 }
 
 async function parseExcel(filePath, meta) {
-  const XLSX = await import('xlsx');
+  const XLSX = await importDependency('xlsx');
   const buffer = await fs.readFile(filePath);
   const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
   const sheetName = workbook.SheetNames[0];
@@ -300,7 +348,7 @@ async function parsePdf(filePath, meta) {
   ensurePdfDomPolyfills();
 
   try {
-    const canvas = await import('@napi-rs/canvas');
+    const canvas = await importDependency('@napi-rs/canvas');
     if (canvas.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix;
     if (canvas.ImageData) globalThis.ImageData = canvas.ImageData;
     if (canvas.Path2D) globalThis.Path2D = canvas.Path2D;
@@ -308,8 +356,11 @@ async function parsePdf(filePath, meta) {
     ensurePdfDomPolyfills();
   }
 
-  const mod = await import('pdf-parse');
+  const mod = await importDependency('pdf-parse');
   const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
+  if (!PDFParse) {
+    throw new Error('pdf-parse package is missing or invalid (PDFParse export not found)');
+  }
   const buffer = await fs.readFile(filePath);
   const parser = new PDFParse({ data: buffer });
   const result = await parser.getText();
