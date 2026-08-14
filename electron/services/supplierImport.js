@@ -307,14 +307,26 @@ function matchAction(existingMedicines, item) {
 }
 
 function resolveWorkerPath() {
+  const resources = process.resourcesPath || EMPTY;
   const candidates = [
-    path.join(MODULE_DIR, "supplierFileWorker.mjs"),
-    path.join(process.resourcesPath || EMPTY, "supplierFileWorker.mjs"),
+    // Packaged installs: prefer real filesystem copies (ELECTRON_RUN_AS_NODE cannot read asar).
+    resources ? path.join(resources, "supplierFileWorker.mjs") : EMPTY,
+    resources ? path.join(resources, "app.asar.unpacked", "out", "main", "supplierFileWorker.mjs") : EMPTY,
+    resources ? path.join(resources, "app.asar.unpacked", "supplierFileWorker.mjs") : EMPTY,
+    // Dev / build output
     path.join(process.cwd(), "electron/services/supplierFileWorker.mjs"),
     path.join(process.cwd(), "out/main/supplierFileWorker.mjs"),
-  ];
+    path.join(MODULE_DIR, "supplierFileWorker.mjs"),
+  ].filter(Boolean);
+
   for (const candidate of candidates) {
-    if (fsSync.existsSync(candidate)) return candidate;
+    if (!fsSync.existsSync(candidate)) continue;
+    // Rewrite asar → asar.unpacked so the forked Node process can read the file.
+    if (candidate.includes(`${path.sep}app.asar${path.sep}`)) {
+      const unpacked = candidate.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`);
+      if (fsSync.existsSync(unpacked)) return unpacked;
+    }
+    return candidate;
   }
   return candidates[0];
 }

@@ -5,7 +5,12 @@ export default {
     output: 'release',
   },
   files: ['dist/**/*', 'out/**/*', 'package.json'],
-  asarUnpack: ['**/supplierFileWorker.mjs'],
+  asarUnpack: [
+    '**/supplierFileWorker.mjs',
+    '**/node_modules/pdf-parse/**',
+    '**/node_modules/pdfjs-dist/**',
+    '**/node_modules/@napi-rs/canvas*/**',
+  ],
   extraResources: [
     {
       from: 'build/seed-data',

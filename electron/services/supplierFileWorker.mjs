@@ -1,7 +1,85 @@
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 const EMPTY = String();
+
+function ensurePdfDomPolyfills() {
+  if (typeof globalThis.DOMMatrix !== 'function') {
+    class DOMMatrixPolyfill {
+      constructor(init) {
+        this.a = 1;
+        this.b = 0;
+        this.c = 0;
+        this.d = 1;
+        this.e = 0;
+        this.f = 0;
+        this.m11 = 1;
+        this.m12 = 0;
+        this.m13 = 0;
+        this.m14 = 0;
+        this.m21 = 0;
+        this.m22 = 1;
+        this.m23 = 0;
+        this.m24 = 0;
+        this.m31 = 0;
+        this.m32 = 0;
+        this.m33 = 1;
+        this.m34 = 0;
+        this.m41 = 0;
+        this.m42 = 0;
+        this.m43 = 0;
+        this.m44 = 1;
+        this.is2D = true;
+        this.isIdentity = true;
+        if (Array.isArray(init) && init.length >= 6) {
+          [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+          this.m11 = this.a;
+          this.m12 = this.b;
+          this.m21 = this.c;
+          this.m22 = this.d;
+          this.m41 = this.e;
+          this.m42 = this.f;
+          this.isIdentity = false;
+        }
+      }
+      multiply() {
+        return new DOMMatrixPolyfill();
+      }
+      inverse() {
+        return new DOMMatrixPolyfill();
+      }
+      translate() {
+        return new DOMMatrixPolyfill();
+      }
+      scale() {
+        return new DOMMatrixPolyfill();
+      }
+      transformPoint(point) {
+        return point || { x: 0, y: 0, z: 0, w: 1 };
+      }
+    }
+    globalThis.DOMMatrix = DOMMatrixPolyfill;
+  }
+
+  if (typeof globalThis.ImageData !== 'function') {
+    globalThis.ImageData = class ImageData {
+      constructor(width, height) {
+        this.width = width;
+        this.height = height;
+        this.data = new Uint8ClampedArray(Math.max(0, width * height * 4));
+      }
+    };
+  }
+
+  if (typeof globalThis.Path2D !== 'function') {
+    globalThis.Path2D = class Path2D {};
+  }
+}
+
+// Must run before pdf-parse/pdfjs load (Windows packaged apps often lack @napi-rs/canvas).
+ensurePdfDomPolyfills();
 
 function normalizeHeader(header) {
   return String(header || EMPTY)
@@ -221,12 +299,104 @@ async function parseExcel(filePath, meta) {
 }
 
 async function parsePdf(filePath, meta) {
-  const mod = await import('pdf-parse');
-  const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
-  const buffer = await fs.readFile(filePath);
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  return parsePdfInvoiceLines(result?.text || EMPTY, meta);
+  // #region agent log
+  const debugLogPaths = [
+    '/Users/jai/Desktop/medical-pos/.cursor/debug-49bbd8.log',
+    path.join(os.tmpdir(), 'debug-49bbd8.log'),
+  ];
+  const __dbg = (hypothesisId, message, data = {}) => {
+    const payload = {
+      sessionId: '49bbd8',
+      runId: process.env.SUPPLIER_IMPORT_DEBUG_RUN || 'post-fix',
+      hypothesisId,
+      location: 'supplierFileWorker.mjs:parsePdf',
+      message,
+      data: {
+        platform: process.platform,
+        arch: process.arch,
+        domMatrixType: typeof globalThis.DOMMatrix,
+        ...data,
+      },
+      timestamp: Date.now(),
+    };
+    const line = `${JSON.stringify(payload)}\n`;
+    for (const logPath of debugLogPaths) {
+      try {
+        fsSync.appendFileSync(logPath, line);
+      } catch {
+        /* ignore */
+      }
+    }
+    fetch('http://127.0.0.1:7511/ingest/373a3f4c-02d1-4fe3-8f88-d3b0d1e64c72', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '49bbd8' },
+      body: JSON.stringify(payload),
+    }).catch(() => {});
+  };
+  // #endregion
+
+  // #region agent log
+  if (process.env.SUPPLIER_IMPORT_SIMULATE_NO_CANVAS === '1') {
+    const Module = await import('node:module');
+    const proto = Module.default?.prototype || Module.prototype;
+    const origRequire = proto.require;
+    proto.require = function patchedRequire(id) {
+      if (String(id).includes('@napi-rs/canvas')) {
+        throw new Error('simulated missing canvas (Windows packaging)');
+      }
+      return origRequire.apply(this, arguments);
+    };
+  }
+  // #endregion
+
+  ensurePdfDomPolyfills();
+
+  // #region agent log
+  let canvasLoad = { ok: false, error: null };
+  try {
+    const canvas = await import('@napi-rs/canvas');
+    canvasLoad = { ok: true, error: null };
+    if (canvas.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix;
+    if (canvas.ImageData) globalThis.ImageData = canvas.ImageData;
+    if (canvas.Path2D) globalThis.Path2D = canvas.Path2D;
+  } catch (error) {
+    canvasLoad = { ok: false, error: error?.message || String(error) };
+    ensurePdfDomPolyfills();
+  }
+  __dbg('A', 'dom ready before pdf-parse', {
+    canvasOk: canvasLoad.ok,
+    canvasError: canvasLoad.error,
+  });
+  // #endregion
+
+  try {
+    const mod = await import('pdf-parse');
+    // #region agent log
+    __dbg('B', 'pdf-parse imported', {
+      hasPDFParse: Boolean(mod.PDFParse || mod.default?.PDFParse || mod.default),
+    });
+    // #endregion
+    const PDFParse = mod.PDFParse || mod.default?.PDFParse || mod.default;
+    const buffer = await fs.readFile(filePath);
+    // #region agent log
+    __dbg('C', 'starting getText', { fileBytes: buffer.length, fileName: path.basename(filePath) });
+    // #endregion
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    const items = parsePdfInvoiceLines(result?.text || EMPTY, meta);
+    // #region agent log
+    __dbg('D', 'pdf parse success', { textLen: (result?.text || EMPTY).length, itemCount: items.length });
+    // #endregion
+    return items;
+  } catch (error) {
+    // #region agent log
+    __dbg('E', 'pdf parse failed', {
+      error: error?.message || String(error),
+      canvasOk: canvasLoad.ok,
+    });
+    // #endregion
+    throw error;
+  }
 }
 
 const filePath = process.argv[2];
