@@ -743,12 +743,26 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         toast(result.message || 'Could not read supplier file', 'error');
         return;
       }
+
+      const latestSuppliers = await window.api.suppliers.getAll();
+      setSuppliers(latestSuppliers);
+
+      // Prefer supplier detected from the attachment; fall back to matching existing name.
+      const detected = String(result.supplier_name || '').trim();
+      const matched = latestSuppliers.find(
+        (s) => String(s.name || '').trim().toLowerCase() === detected.toLowerCase(),
+      );
+      const supplier_name = matched?.name || detected;
+
       setSupplierImportMeta({
         file_name: result.file_name || '',
         format: result.format || '',
-        supplier_name: result.supplier_name || '',
+        supplier_name,
       });
-      setSupplierImportRows(result.items || []);
+      setSupplierImportRows((result.items || []).map((row) => ({
+        ...row,
+        supplier_name: supplier_name || row.supplier_name || '',
+      })));
       setSupplierImportOpen(true);
     });
   }
@@ -761,6 +775,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     const selected = supplierImportRows.filter((row) => row.selected !== false && String(row.name || '').trim());
     if (!selected.length) {
       toast('Select at least one medicine to import', 'error');
+      return;
+    }
+    if (!String(supplierImportMeta.supplier_name || '').trim()) {
+      toast('Enter or select a supplier name', 'error');
       return;
     }
     setSupplierImportSaving(true);
@@ -1413,16 +1431,27 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       >
         <div className="flex h-full min-h-0 flex-col gap-4">
           <div className="grid shrink-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-            <Input
-              label="Supplier"
-              value={supplierImportMeta.supplier_name}
-              onChange={(e) => {
-                const supplier_name = e.target.value;
-                setSupplierImportMeta((prev) => ({ ...prev, supplier_name }));
-                setSupplierImportRows((prev) => prev.map((row) => ({ ...row, supplier_name })));
-              }}
-              placeholder="Supplier / distributor name"
-            />
+            <div className="flex flex-col gap-1">
+              <Input
+                label="Supplier"
+                list="supplier-import-datalist"
+                value={supplierImportMeta.supplier_name}
+                onChange={(e) => {
+                  const supplier_name = e.target.value;
+                  setSupplierImportMeta((prev) => ({ ...prev, supplier_name }));
+                  setSupplierImportRows((prev) => prev.map((row) => ({ ...row, supplier_name })));
+                }}
+                placeholder="From file, pick existing, or type a new name"
+              />
+              <datalist id="supplier-import-datalist">
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.name} />
+                ))}
+              </datalist>
+              <p className="text-[11px] font-medium text-slate-500">
+                Prefills from the attached file. Choose an existing supplier or edit the name.
+              </p>
+            </div>
             <div className="flex items-end">
               <Button
                 type="button"

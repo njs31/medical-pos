@@ -186,7 +186,7 @@ const FIELD_SYNONYMS = {
   amount: ['amount', 'amt', 'value', 'taxable', 'net_amount', 'line_amount'],
   hsn_code: ['hsn', 'hsn_code', 'hsncode', 'sac'],
   rack_number: ['rack', 'rack_no', 'rack_number', 'location'],
-  supplier_name: ['supplier_name', 'party_name', 'distributor', 'sold_by'],
+  supplier_name: ['supplier_name', 'supplier', 'party_name', 'distributor', 'sold_by', 'from'],
 };
 
 function scoreHeader(header, synonyms) {
@@ -284,12 +284,42 @@ function parseTabularContent(rows, meta = {}) {
   return items;
 }
 
+function detectSupplierFromPdfText(text) {
+  const lines = String(text || EMPTY)
+    .split(/\n/)
+    .map((line) => line.replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .slice(0, 40);
+
+  for (const line of lines) {
+    if (/page\s*no|cust\s*code|bill\s*to|ship\s*to|buyer|customer|dharvi|invoice\s*no|gstin|drug\s*lic/i.test(line)) {
+      continue;
+    }
+    if (/pharma|distribut|agency|agencies|wholesaler|enterprise/i.test(line)) {
+      const cleaned = cleanProductName(
+        line
+          .replace(/office\s*copy|tax\s*invoice|invoice|original|duplicate/gi, EMPTY)
+          .replace(/\s+/g, ' ')
+          .trim(),
+      );
+      if (cleaned.length >= 4) return cleaned;
+    }
+  }
+
+  const labeled = String(text || EMPTY).match(
+    /(?:sold\s*by|supplier|from|distributor)\s*[:\-]?\s*([A-Z][A-Za-z0-9&.,\-\/\s]{3,80})/i,
+  );
+  if (labeled?.[1]) return cleanProductName(labeled[1]);
+  return EMPTY;
+}
+
 function parsePdfInvoiceLines(text, meta = {}) {
   const lines = String(text || EMPTY)
     .split(/\n/)
     .map((line) => line.replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
 
+  const supplierName = meta.supplier_name || detectSupplierFromPdfText(text);
   const items = [];
   const seen = new Set();
   const patternA = new RegExp(
@@ -315,7 +345,7 @@ function parsePdfInvoiceLines(text, meta = {}) {
       stock_qty: stockQty,
       reorder_level: getLowStockThreshold(stockQty),
       tablets_per_sheet: 0,
-      supplier_name: meta.supplier_name || EMPTY,
+      supplier_name: supplierName,
       item_category: 'Medicine',
       rack_number: match[1],
       product_type: 'Ethical',
@@ -364,7 +394,12 @@ async function parsePdf(filePath, meta) {
   const buffer = await fs.readFile(filePath);
   const parser = new PDFParse({ data: buffer });
   const result = await parser.getText();
-  return parsePdfInvoiceLines(result?.text || EMPTY, meta);
+  const text = result?.text || EMPTY;
+  const detectedSupplier = detectSupplierFromPdfText(text);
+  return parsePdfInvoiceLines(text, {
+    ...meta,
+    supplier_name: detectedSupplier || meta.supplier_name || EMPTY,
+  });
 }
 
 const filePath = process.argv[2];

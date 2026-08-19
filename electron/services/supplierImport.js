@@ -24,7 +24,7 @@ const FIELD_SYNONYMS = {
   amount: ["amount", "amt", "value", "taxable", "net_amount", "line_amount"],
   hsn_code: ["hsn", "hsn_code", "hsncode", "sac"],
   rack_number: ["rack", "rack_no", "rack_number", "location"],
-  supplier_name: ["supplier_name", "party_name", "distributor", "sold_by"],
+  supplier_name: ["supplier_name", "supplier", "party_name", "distributor", "sold_by", "from"],
 };
 
 function normalizeHeader(header) {
@@ -187,10 +187,10 @@ function rowFromMappedValues(values, mapping, meta = {}) {
     stock_qty: stockQty,
     reorder_level: getLowStockThreshold(stockQty),
     tablets_per_sheet: 0,
-    supplier_name: meta.supplier_name || EMPTY,
+    supplier_name: get("supplier_name") || meta.supplier_name || EMPTY,
     item_category: 'Medicine',
     rack_number: get('rack_number'),
-    product_type: 'Generic',
+    product_type: 'Ethical',
     combination: EMPTY,
     source_hint: meta.source_hint || EMPTY,
   };
@@ -243,9 +243,39 @@ function detectSupplierFromFileName(fileName = EMPTY) {
   const base = String(fileName || EMPTY).replace(/\.[^.]+$/, EMPTY);
   const parts = base.split(/[_\-]+/).map((part) => part.trim()).filter(Boolean);
   const hit = parts.find(
-    (part) => /pharma|distribut|agency|agencies|enterprise/i.test(part) && !/dharvi|polyclinic/i.test(part),
+    (part) => /pharma|distribut|agency|agencies|enterprise/i.test(part) && !/dharvi|polyclinic|medical/i.test(part),
   );
   return hit ? cleanProductName(hit) : EMPTY;
+}
+
+function looksLikeDistributorName(name = EMPTY) {
+  return /pharma|distribut|agency|agencies|wholesaler|enterprise/i.test(String(name || EMPTY));
+}
+
+function pickMostCommonSupplier(items = []) {
+  const counts = new Map();
+  for (const item of items) {
+    const name = String(item?.supplier_name || EMPTY).trim();
+    if (!name) continue;
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  let best = EMPTY;
+  let bestCount = 0;
+  for (const [name, count] of counts.entries()) {
+    if (count > bestCount) {
+      best = name;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function resolveDetectedSupplier(fileNameSupplier, items = []) {
+  const fromItems = pickMostCommonSupplier(items);
+  // Prefer names that look like distributors (not shop/buyer party columns).
+  if (looksLikeDistributorName(fileNameSupplier)) return fileNameSupplier;
+  if (looksLikeDistributorName(fromItems)) return fromItems;
+  return fileNameSupplier || fromItems || EMPTY;
 }
 
 function parseTabularContent(rows, meta = {}) {
@@ -366,10 +396,7 @@ export async function parseSupplierFile(filePath) {
   }
 
   const existing = getDb().prepare("SELECT id, name, batch, stock_qty FROM medicines").all();
-  const supplier_name =
-    baseMeta.supplier_name ||
-    items.find((row) => row.supplier_name)?.supplier_name ||
-    EMPTY;
+  const supplier_name = resolveDetectedSupplier(baseMeta.supplier_name, items);
 
   const preview = items.map((item, index) => {
     const match = matchAction(existing, item);
