@@ -292,7 +292,7 @@ function detectSupplierFromPdfText(text) {
     .slice(0, 40);
 
   for (const line of lines) {
-    if (/page\s*no|cust\s*code|bill\s*to|ship\s*to|buyer|customer|dharvi|invoice\s*no|gstin|drug\s*lic/i.test(line)) {
+    if (/page\s*no|cust\s*code|bill\s*to|ship\s*to|buyer|customer|dharvi|first\s*care|invoice\s*no|gstin|drug\s*lic/i.test(line)) {
       continue;
     }
     if (/pharma|distribut|agency|agencies|wholesaler|enterprise/i.test(line)) {

@@ -37,7 +37,7 @@ function SummaryRow({ label, value }) {
 }
 
 const DEFAULT_CLINIC = {
-  shop_name: 'DHARVI SREE POLY CLINIC',
+  shop_name: 'FIRST CARE MEDICALS',
   address:
     'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK, Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072',
   phone: '+91 91 00 4382 23',

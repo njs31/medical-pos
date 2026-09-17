@@ -35,6 +35,7 @@ import {
   restoreStockCheckpoint,
 } from './database/stockTimeline.js';
 import { applySupplierImport, parseSupplierFile } from './services/supplierImport.js';
+import { applyPendingStockPatches } from './database/stockPatches.js';
 import { getSettings, saveSettings } from './database/settings.js';
 import { backupToSpacetimeDB, loadSpacetimeTokenFromCli } from './services/spacetimeBackup.js';
 import {
@@ -389,6 +390,13 @@ app.whenReady().then(() => {
     log.info('Initializing database...');
     initDatabase();
     log.info('Database initialized successfully.');
+
+    try {
+      const patches = applyPendingStockPatches();
+      if (patches.length) log.info('Applied stock patches:', JSON.stringify(patches));
+    } catch (error) {
+      log.error('Stock patch failed:', error.message);
+    }
     
     log.info('Creating main window...');
     createMainWindow();

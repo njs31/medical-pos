@@ -228,7 +228,7 @@ export default function EmergencyBill({ toast, editBillId = null, onNavigate, sh
               {isEditing ? 'Edit Emergency Bill' : 'Procedures Registration'}
             </div>
             <h2 className="mt-1 text-xl font-extrabold text-slate-900">Emergency Bill</h2>
-            <p className="mt-1 text-sm text-slate-500">Dharvi Sree Polyclinic procedures registration receipt</p>
+            <p className="mt-1 text-sm text-slate-500">First Care Medicals procedures registration receipt</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => saveBill(false)}>

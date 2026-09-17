@@ -7,7 +7,7 @@ let db;
 
 const DEFAULT_OLD_SHOP_NAME = 'CITY CARE PHARMACY';
 const DEFAULT_OLD_ADDRESS = '21 Wellness Avenue, Sector 5, New Delhi - 110001';
-const DEFAULT_NEW_SHOP_NAME = 'DHARVI SREE POLY CLINIC';
+const DEFAULT_NEW_SHOP_NAME = 'FIRST CARE MEDICALS';
 const DEFAULT_NEW_ADDRESS =
   'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK, Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072';
 // [name, pack, hsn, batch, expiry, mrp, rate, purchase, sgst, cgst, stock, reorder, tab/sheet, supplier, category, rack, product_type]
@@ -60,7 +60,7 @@ function seedSettings(database) {
       invoice_prefix, invoice_start, default_discount, terms, footer_message, paper_size
     ) VALUES (
       1,
-      'DHARVI SREE POLY CLINIC',
+      'FIRST CARE MEDICALS',
       'GROUND FLOOR, VIJAY NAGAR, D.NO:2-22-134/A1, opp. HUDA PARK, Vijaya Nagar Colony, Kukatpally, Hyderabad, Telangana 500072',
       '+91 91 00 4382 23',
       '',
@@ -349,8 +349,13 @@ export function initDatabase() {
   seedSettings(db);
   migrateDefaultShopSettings(db);
   
-  // Custom migration for DHARVI SREE POLY CLINIC
-  db.prepare(`UPDATE shop_settings SET shop_name = ?, phone = ?, paper_size = 'A5' WHERE id = 1`).run('DHARVI SREE POLY CLINIC', '+91 91 00 4382 23');
+  // Rebrand: DHARVI SREE POLY CLINIC became FIRST CARE MEDICALS. Runs once,
+  // only while the old name is still in place, so the shop can edit the name
+  // in Settings afterwards without it being overwritten on the next launch.
+  db.prepare(`
+    UPDATE shop_settings SET shop_name = ?
+    WHERE id = 1 AND shop_name = ?
+  `).run('FIRST CARE MEDICALS', 'DHARVI SREE POLY CLINIC');
   
   return db;
 }
