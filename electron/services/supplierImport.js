@@ -13,17 +13,24 @@ const DQUOTE = String.fromCharCode(34);
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 const FIELD_SYNONYMS = {
-  name: ["item_name", "product_name", "product", "medicine_name", "medicine", "item", "particulars", "description", "drug_name", "name"],
-  pack: ["pack", "pack_size", "packing", "pkg"],
-  batch: ["batch", "batch_no", "batch_number", "batchno", "bno", "lot", "lot_no"],
-  expiry: ["expiry", "exp", "exp_date", "expiry_date", "expdt", "expire"],
-  qty: ["qty", "quantity", "stock", "stock_qty", "qnty", "bill_qty", "inv_qty", "nos"],
-  free_qty: ["f_qty", "free", "free_qty", "fqty", "sch"],
-  mrp: ["mrp", "m_r_p", "maximum_retail_price", "retail_price"],
-  rate: ["rate", "srate", "ftrate", "ptr", "pts", "purchase_rate", "buying_rate", "cost", "unit_rate", "net_rate"],
-  amount: ["amount", "amt", "value", "taxable", "net_amount", "line_amount"],
-  hsn_code: ["hsn", "hsn_code", "hsncode", "sac"],
-  rack_number: ["rack", "rack_no", "rack_number", "location"],
+  name: [
+    "item_name", "itemname", "product_name", "productname", "prod_name", "prodname", "product", "medicine_name",
+    "medicine", "item", "items", "particulars", "particular", "description", "item_description", "drug_name",
+    "name", "goods_description", "product_description",
+  ],
+  pack: ["pack", "pack_size", "packing", "pkg", "pck", "packsize", "unit"],
+  batch: ["batch", "batch_no", "batch_number", "batchno", "bno", "b_no", "lot", "lot_no", "lotno", "batch_code"],
+  expiry: ["expiry", "exp", "exp_date", "expiry_date", "expdt", "exp_dt", "expire", "expdate", "exp_month"],
+  qty: ["qty", "quantity", "stock", "stock_qty", "qnty", "bill_qty", "inv_qty", "nos", "pcs", "issue_qty"],
+  free_qty: ["f_qty", "free", "free_qty", "fqty", "fq", "sch", "scheme", "sch_qty", "bonus"],
+  mrp: ["mrp", "m_r_p", "maximum_retail_price", "retail_price", "mrp_rs", "mrp_rate"],
+  rate: [
+    "rate", "srate", "ftrate", "ptr", "pts", "p_rate", "prate", "purchase_rate", "purch_rate", "buying_rate",
+    "cost", "unit_rate", "net_rate", "trade_rate", "basic_rate",
+  ],
+  amount: ["amount", "amt", "value", "taxable", "net_amount", "line_amount", "net_value", "taxable_value"],
+  hsn_code: ["hsn", "hsn_code", "hsncode", "hsn_sac", "sac"],
+  rack_number: ["rack", "rack_no", "rack_number", "location", "shelf"],
   supplier_name: ["supplier_name", "supplier", "party_name", "distributor", "sold_by", "from"],
 };
 
@@ -98,7 +105,7 @@ function scoreHeader(header, synonyms, { exactOnly = false } = {}) {
 function mapHeaders(headers) {
   const mapping = {};
   const used = new Set();
-  const exactFields = new Set(['name', 'batch', 'expiry', 'qty', 'mrp', 'hsn_code']);
+  const exactFields = new Set(['batch', 'expiry', 'qty', 'mrp', 'hsn_code']);
 
   for (const [field, synonyms] of Object.entries(FIELD_SYNONYMS)) {
     let best = { index: -1, score: 0 };
@@ -107,7 +114,7 @@ function mapHeaders(headers) {
       const score = scoreHeader(header, synonyms, { exactOnly: exactFields.has(field) });
       if (score > best.score) best = { index, score };
     });
-    const threshold = exactFields.has(field) ? 100 : 70;
+    const threshold = exactFields.has(field) ? 100 : 60;
     if (best.score >= threshold) {
       mapping[field] = best.index;
       used.add(best.index);
@@ -310,6 +317,32 @@ function parseCsvBuffer(buffer, meta = {}) {
   });
 }
 
+/**
+ * Same review rules the PDF/Excel worker applies, for rows that arrive without
+ * them (CSV is parsed here rather than in the worker). Without this, a CSV row
+ * missing a batch or cost would show as "Looks complete" in the preview.
+ */
+function annotateRowConfidence(item) {
+  const warnings = [];
+  if (!item.batch) warnings.push("No batch found");
+  if (!item.expiry) warnings.push("No expiry found");
+  if (!parseNumber(item.mrp)) warnings.push("No MRP found");
+  if (!parseNumber(item.purchase_rate || item.rate)) warnings.push("No cost found");
+
+  const mrp = parseNumber(item.mrp);
+  const cost = parseNumber(item.purchase_rate || item.rate);
+  if (mrp && cost && cost > mrp) warnings.push("Cost is higher than MRP - check columns");
+  if (parseNumber(item.stock_qty) > 5000) warnings.push("Unusually large quantity");
+  if (item.name && String(item.name).trim().length < 4) warnings.push("Very short product name");
+
+  const critical = warnings.some(
+    (w) => w.startsWith("Cost is higher") || w === "Unusually large quantity",
+  );
+  const confidence = critical || warnings.length >= 3 ? "low" : warnings.length >= 1 ? "medium" : "high";
+
+  return { ...item, warnings, confidence, needs_review: confidence !== "high" };
+}
+
 function matchAction(existingMedicines, item) {
   const nameKey = String(item.name || EMPTY).trim().toUpperCase();
   const batchKey = String(item.batch || EMPTY).trim().toUpperCase();
@@ -371,6 +404,8 @@ export async function parseSupplierFile(filePath) {
 
   let items = [];
   let format = "unknown";
+  let strategy = EMPTY;
+  let diagnostics = {};
 
   if (ext === ".csv" || ext === ".txt") {
     format = "csv";
@@ -378,12 +413,10 @@ export async function parseSupplierFile(filePath) {
     items = parseCsvBuffer(buffer, baseMeta);
   } else if (ext === ".xlsx" || ext === ".xls" || ext === ".pdf") {
     format = ext === ".pdf" ? "pdf" : "excel";
-    items = await parseBinarySupplierFile(filePath, ext, resolveWorkerPath());
-    items = items.map((item) => ({
-      ...item,
-      supplier_name: item.supplier_name || baseMeta.supplier_name,
-    }));
-    items = items.map((item) => ({
+    const parsed = await parseBinarySupplierFile(filePath, ext, resolveWorkerPath());
+    strategy = parsed.strategy || EMPTY;
+    diagnostics = parsed.diagnostics || {};
+    items = (parsed.items || []).map((item) => ({
       ...item,
       supplier_name: item.supplier_name || baseMeta.supplier_name,
     }));
@@ -392,19 +425,31 @@ export async function parseSupplierFile(filePath) {
   }
 
   if (!items.length) {
+    // A scan or photo has no text to read, which is a different problem from a
+    // layout we failed to understand - say which one it is.
+    if (format === "pdf" && diagnostics.has_text_layer === false) {
+      throw new Error(
+        "This PDF has no readable text - it looks like a scan or photo of an invoice. " +
+          "Ask the supplier for the digital PDF, Excel or CSV version, or type these items in manually.",
+      );
+    }
     throw new Error("Could not detect medicine rows in this file. Check the format and try again.");
   }
 
   const existing = getDb().prepare("SELECT id, name, batch, stock_qty FROM medicines").all();
   const supplier_name = resolveDetectedSupplier(baseMeta.supplier_name, items);
 
-  const preview = items.map((item, index) => {
+  const preview = items.map((rawItem, index) => {
+    const item = rawItem.confidence ? rawItem : annotateRowConfidence(rawItem);
     const match = matchAction(existing, item);
     return {
       ...item,
       row_id: index + 1,
       selected: true,
       supplier_name: supplier_name || item.supplier_name || EMPTY,
+      warnings: Array.isArray(item.warnings) ? item.warnings : [],
+      confidence: item.confidence || "high",
+      needs_review: item.needs_review === true,
       ...match,
     };
   });
@@ -415,6 +460,8 @@ export async function parseSupplierFile(filePath) {
     file_name: fileName,
     supplier_name,
     item_count: preview.length,
+    review_count: preview.filter((row) => row.needs_review).length,
+    strategy,
     items: preview,
   };
 }

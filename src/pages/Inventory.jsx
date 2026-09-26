@@ -390,9 +390,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkActiveProductRow, setBulkActiveProductRow] = useState(null);
   const [supplierImportOpen, setSupplierImportOpen] = useState(false);
-  const [supplierImportMeta, setSupplierImportMeta] = useState({ file_name: '', format: '', supplier_name: '' });
+  const [supplierImportMeta, setSupplierImportMeta] = useState({ file_name: '', format: '', supplier_name: '', review_count: 0, strategy: '' });
   const [supplierImportRows, setSupplierImportRows] = useState([]);
   const [supplierImportSaving, setSupplierImportSaving] = useState(false);
+  const [supplierImportReviewOnly, setSupplierImportReviewOnly] = useState(false);
   const bulkColumnKeys = useMemo(() => getBulkColumnKeys(bulkItemCategory), [bulkItemCategory]);
   const handleBulkNavigate = useCallback(
     (e, rowIndex, colKey) => {
@@ -758,7 +759,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
         file_name: result.file_name || '',
         format: result.format || '',
         supplier_name,
+        review_count: result.review_count || 0,
+        strategy: result.strategy || '',
       });
+      setSupplierImportReviewOnly(false);
       setSupplierImportRows((result.items || []).map((row) => ({
         ...row,
         supplier_name: supplier_name || row.supplier_name || '',
@@ -766,6 +770,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       setSupplierImportOpen(true);
     });
   }
+
+  const supplierImportReviewCount = supplierImportRows.filter((row) => row?.needs_review).length;
 
   function updateSupplierImportRow(index, patch) {
     setSupplierImportRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -1475,14 +1481,36 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           </div>
 
           {supplierImportRows[0]?.name ? (
-            <div className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              <span className="font-bold">Detected {supplierImportRows.length} medicines.</span>
-              {' '}Edit any field below before confirming.
-              {' '}First row: <span className="font-semibold">{supplierImportRows[0].name}</span>
-              {supplierImportRows[0].batch ? ` · Batch ${supplierImportRows[0].batch}` : ''}
-              {supplierImportRows[0].expiry ? ` · Exp ${supplierImportRows[0].expiry}` : ''}
-              {supplierImportRows[0].stock_qty != null ? ` · Qty ${supplierImportRows[0].stock_qty}` : ''}
-              {supplierImportRows[0].mrp ? ` · MRP ${supplierImportRows[0].mrp}` : ''}
+            <div className="shrink-0 space-y-2">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <span className="font-bold">Read {supplierImportRows.length} medicines from this file.</span>
+                {' '}Check the values against the invoice and edit any field before confirming.
+                {' '}First row: <span className="font-semibold">{supplierImportRows[0].name}</span>
+                {supplierImportRows[0].batch ? ` · Batch ${supplierImportRows[0].batch}` : ''}
+                {supplierImportRows[0].expiry ? ` · Exp ${supplierImportRows[0].expiry}` : ''}
+                {supplierImportRows[0].stock_qty != null ? ` · Qty ${supplierImportRows[0].stock_qty}` : ''}
+                {supplierImportRows[0].mrp ? ` · MRP ${supplierImportRows[0].mrp}` : ''}
+              </div>
+              {supplierImportReviewCount > 0 ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <span>
+                    <span className="font-bold">{supplierImportReviewCount} row{supplierImportReviewCount === 1 ? '' : 's'} need a closer look.</span>
+                    {' '}Something was missing or looked odd - the Check column says what. Nothing is saved until you confirm.
+                  </span>
+                  <label className="flex items-center gap-2 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={supplierImportReviewOnly}
+                      onChange={(e) => setSupplierImportReviewOnly(e.target.checked)}
+                    />
+                    Show only these rows
+                  </label>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900">
+                  Every row came through with a batch, expiry, MRP and cost. Still worth a quick look before confirming.
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -1493,6 +1521,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <th className="sticky left-0 z-20 bg-slate-100 px-2 py-2">Use</th>
                   <th className="px-2 py-2">#</th>
                   <th className="sticky left-8 z-20 min-w-[180px] bg-slate-100 px-2 py-2">Product *</th>
+                  <th className="min-w-[150px] px-2 py-2">Check</th>
                   <th className="min-w-[70px] px-2 py-2">Rack</th>
                   <th className="min-w-[90px] px-2 py-2">Batch</th>
                   <th className="min-w-[70px] px-2 py-2">Expiry</th>
@@ -1510,8 +1539,15 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 </tr>
               </thead>
               <tbody>
-                {supplierImportRows.map((row, index) => {
-                  const rowBg = row.selected === false ? 'bg-slate-100' : index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
+                {supplierImportRows
+                  .map((row, index) => ({ row, index }))
+                  .filter(({ row }) => !supplierImportReviewOnly || row.needs_review)
+                  .map(({ row, index }) => {
+                  const rowBg = row.selected === false
+                    ? 'bg-slate-100'
+                    : row.needs_review
+                      ? 'bg-amber-50'
+                      : index % 2 === 0 ? 'bg-white' : 'bg-slate-50';
                   return (
                     <tr key={`import-row-${index}`} className={`${rowBg} ${row.selected === false ? 'opacity-60' : ''}`}>
                       <td className={`sticky left-0 z-10 px-2 py-1.5 ${rowBg}`}>
@@ -1528,6 +1564,18 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                           value={row.name || ''}
                           onChange={(e) => updateSupplierImportRow(index, { name: e.target.value })}
                         />
+                      </td>
+                      <td className="px-2 py-1.5 align-top">
+                        {row.needs_review ? (
+                          <span
+                            className="block text-[10px] font-semibold leading-snug text-amber-800"
+                            title={(row.warnings || []).join('\n')}
+                          >
+                            {(row.warnings || []).join(' · ') || 'Check this row'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-semibold text-emerald-700">Looks complete</span>
+                        )}
                       </td>
                       <td className="px-2 py-1.5">
                         <input

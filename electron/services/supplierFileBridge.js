@@ -37,6 +37,9 @@ function resolveSupplierNodeModules(workerPath) {
  * Runs PDF/Excel parsing in a separate Node process so xlsx/pdf-parse
  * are never bundled into the Electron main vite chunk.
  *
+ * Resolves { items, strategy, diagnostics } - diagnostics lets the caller tell
+ * "no rows recognised" apart from "this PDF is a scan with no text at all".
+ *
  * Uses ELECTRON_RUN_AS_NODE (plain Node), which cannot read asar — so
  * pdf-parse/xlsx/pdfjs must be asar-unpacked and passed via SUPPLIER_IMPORT_NODE_MODULES.
  */
@@ -63,8 +66,13 @@ export function parseBinarySupplierFile(filePath, ext, workerPath) {
     child.on("message", (message) => {
       if (settled) return;
       settled = true;
-      if (message?.ok) resolve(message.items || []);
-      else reject(new Error(message?.error || stderr || "Worker failed to parse file"));
+      if (message?.ok) {
+        resolve({
+          items: message.items || [],
+          strategy: message.strategy || "",
+          diagnostics: message.diagnostics || {},
+        });
+      } else reject(new Error(message?.error || stderr || "Worker failed to parse file"));
     });
 
     child.on("error", (error) => {

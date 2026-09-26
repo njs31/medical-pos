@@ -25,3 +25,6 @@ coverage/
 *.sqlite-wal
 
 electron-builder.env
+
+# Local cloud-backup snapshots: contain patient data and auth tokens
+tmp/
