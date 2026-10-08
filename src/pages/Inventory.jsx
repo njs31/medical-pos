@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, Download, FileUp, Layers, Lock, LogOut, Pencil, Plus, ShieldCheck, Trash2, Upload } from 'lucide-react';
 import Button from '@/components/ui/Button';
@@ -221,6 +221,7 @@ function BulkProductNameInput({
   rowCount,
 }) {
   const inputRef = useRef(null);
+  const searchReqId = useRef(0);
   const [results, setResults] = useState([]);
   const [dropdownStyle, setDropdownStyle] = useState(null);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -231,21 +232,26 @@ function BulkProductNameInput({
   }, [results]);
 
   useEffect(() => {
-    if (!isActive || !String(value || '').trim()) {
+    const q = String(value || '').trim();
+    if (!isActive || !q) {
+      searchReqId.current += 1;
       setResults([]);
       return undefined;
     }
 
-    let cancelled = false;
+    const reqId = ++searchReqId.current;
     const timer = setTimeout(async () => {
-      const rows = await window.api.medicines.search(value);
-      if (!cancelled) setResults(rows);
-    }, 150);
+      try {
+        const rows = await window.api.medicines.search(q);
+        if (reqId !== searchReqId.current) return;
+        setResults(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (reqId !== searchReqId.current) return;
+        setResults([]);
+      }
+    }, 120);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [value, isActive]);
 
   useEffect(() => {
@@ -450,8 +456,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   }
 
   async function load() {
-    setMedicines(await window.api.medicines.getAll());
-    setSuppliers(await window.api.suppliers.getAll());
+    const [nextMedicines, nextSuppliers] = await Promise.all([
+      window.api.medicines.getAll(),
+      window.api.suppliers.getAll(),
+    ]);
+    startTransition(() => {
+      setMedicines(Array.isArray(nextMedicines) ? nextMedicines : []);
+      setSuppliers(Array.isArray(nextSuppliers) ? nextSuppliers : []);
+    });
   }
 
   useEffect(() => {
@@ -1527,6 +1539,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                   <th className="min-w-[70px] px-2 py-2">Expiry</th>
                   <th className="min-w-[80px] px-2 py-2">MRP</th>
                   <th className="min-w-[80px] px-2 py-2">Cost</th>
+                  <th className="min-w-[70px] px-2 py-2">Margin %</th>
                   <th className="min-w-[70px] px-2 py-2">Qty *</th>
                   <th className="min-w-[70px] px-2 py-2">Pack</th>
                   <th className="min-w-[90px] px-2 py-2">HSN</th>
@@ -1618,6 +1631,16 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                           value={row.purchase_rate ?? row.rate ?? ''}
                           onChange={(e) => updateSupplierImportRow(index, { purchase_rate: e.target.value, rate: e.target.value })}
                         />
+                      </td>
+                      <td className="px-2 py-1.5 text-center font-semibold text-slate-700">
+                        {(() => {
+                          const mrp = Number(row.mrp) || 0;
+                          const cost = Number(row.purchase_rate ?? row.rate) || 0;
+                          if (mrp <= 0) return <span className="text-slate-400">—</span>;
+                          const pct = ((mrp - cost) / mrp) * 100;
+                          const tone = pct < 0 ? 'text-rose-600' : pct < 15 ? 'text-amber-700' : 'text-emerald-700';
+                          return <span className={tone}>{pct.toFixed(1)}%</span>;
+                        })()}
                       </td>
                       <td className="px-2 py-1.5">
                         <input

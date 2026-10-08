@@ -141,6 +141,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   const [bill, setBill] = useState(isEditing ? createEmptyBill(shopSettings) : (persistentBill || createEmptyBill(shopSettings)));
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
+  const searchReqId = useRef(0);
 
   async function loadInitial() {
     const nextInvoice = await window.api.bills.getNextInvoiceNo();
@@ -219,19 +220,24 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   }, [bill, isEditing, setPersistentBill]);
 
   useEffect(() => {
-    if (!search.trim()) {
+    const q = search.trim();
+    if (!q) {
+      searchReqId.current += 1;
       setResults([]);
       return undefined;
     }
-    let cancelled = false;
+    const reqId = ++searchReqId.current;
     const timer = setTimeout(async () => {
-      const rows = await window.api.medicines.search(search);
-      if (!cancelled) setResults(rows);
-    }, 150);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+      try {
+        const rows = await window.api.medicines.search(q);
+        if (reqId !== searchReqId.current) return;
+        setResults(Array.isArray(rows) ? rows : []);
+      } catch {
+        if (reqId !== searchReqId.current) return;
+        setResults([]);
+      }
+    }, 120);
+    return () => clearTimeout(timer);
   }, [search]);
 
   const totals = useMemo(

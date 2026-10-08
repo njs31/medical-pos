@@ -436,14 +436,45 @@ export async function parseSupplierFile(filePath) {
     throw new Error("Could not detect medicine rows in this file. Check the format and try again.");
   }
 
-  const existing = getDb().prepare("SELECT id, name, batch, stock_qty FROM medicines").all();
+  const existing = getDb()
+    .prepare(
+      `SELECT id, name, batch, stock_qty, combination, tablets_per_sheet,
+              product_type, rack_number, item_category, pack, hsn_code, reorder_level
+       FROM medicines`,
+    )
+    .all();
+
+  // Prefer an existing row that already has salt/combo filled for that product name.
+  const priorByName = new Map();
+  for (const row of existing) {
+    const key = String(row.name || EMPTY).trim().toUpperCase();
+    if (!key) continue;
+    const prev = priorByName.get(key);
+    const combo = String(row.combination || EMPTY).trim();
+    if (!prev) {
+      priorByName.set(key, row);
+    } else if (!String(prev.combination || EMPTY).trim() && combo) {
+      priorByName.set(key, row);
+    }
+  }
+
   const supplier_name = resolveDetectedSupplier(baseMeta.supplier_name, items);
 
   const preview = items.map((rawItem, index) => {
     const item = rawItem.confidence ? rawItem : annotateRowConfidence(rawItem);
     const match = matchAction(existing, item);
+    const nameKey = String(item.name || EMPTY).trim().toUpperCase();
+    const prior = priorByName.get(nameKey);
     return {
       ...item,
+      combination: String(item.combination || EMPTY).trim() || String(prior?.combination || EMPTY).trim(),
+      tablets_per_sheet: item.tablets_per_sheet || prior?.tablets_per_sheet || 0,
+      product_type: item.product_type || prior?.product_type || "Ethical",
+      rack_number: item.rack_number || prior?.rack_number || EMPTY,
+      item_category: item.item_category || prior?.item_category || "Medicine",
+      pack: item.pack || prior?.pack || EMPTY,
+      hsn_code: item.hsn_code || prior?.hsn_code || EMPTY,
+      reorder_level: item.reorder_level ?? prior?.reorder_level ?? 10,
       row_id: index + 1,
       selected: true,
       supplier_name: supplier_name || item.supplier_name || EMPTY,

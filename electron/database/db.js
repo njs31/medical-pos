@@ -356,6 +356,14 @@ export function initDatabase() {
     UPDATE shop_settings SET shop_name = ?
     WHERE id = 1 AND shop_name = ?
   `).run('FIRST CARE MEDICALS', 'DHARVI SREE POLY CLINIC');
+
+  // Speed up inventory load + medicine search on larger catalogues.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_medicines_name ON medicines(name COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_medicines_combination ON medicines(combination);
+    CREATE INDEX IF NOT EXISTS idx_medicines_batch ON medicines(batch);
+    CREATE INDEX IF NOT EXISTS idx_medicines_supplier ON medicines(supplier_name);
+  `);
   
   return db;
 }

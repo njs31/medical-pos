@@ -1,37 +1,63 @@
 import { getDb } from './db.js';
 import { runWithStockCheckpoint } from './stockTimeline.js';
 
-function expiryKey(expiry) {
-  const [month, year] = String(expiry || '').split('/').map(Number);
-  if (!month || !year) return 0;
-  return year * 100 + month;
+const MEDICINE_COLUMNS = `
+  id, name, pack, hsn_code, batch, expiry, mrp, rate, purchase_rate,
+  sgst_percent, cgst_percent, stock_qty, reorder_level, tablets_per_sheet,
+  supplier_name, item_category, rack_number, product_type, combination, created_at
+`;
+
+function escapeLike(token) {
+  return String(token).replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 export function getAllMedicines() {
   return getDb()
-    .prepare('SELECT * FROM medicines ORDER BY name COLLATE NOCASE ASC')
-    .all()
-    .map((row) => ({
-      ...row,
-      expiry_sort: expiryKey(row.expiry),
-    }));
+    .prepare(`SELECT ${MEDICINE_COLUMNS} FROM medicines ORDER BY name COLLATE NOCASE ASC`)
+    .all();
 }
 
 export function searchMedicines(query = '') {
-  const term = `%${query.trim()}%`;
+  const tokens = String(query || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6)
+    .map(escapeLike);
+
+  if (!tokens.length) return [];
+
+  // Every word must match somewhere (name, salt, batch, supplier, or HSN).
+  const conditions = tokens
+    .map(
+      () => `(
+      name LIKE ? ESCAPE '\\'
+      OR hsn_code LIKE ? ESCAPE '\\'
+      OR batch LIKE ? ESCAPE '\\'
+      OR supplier_name LIKE ? ESCAPE '\\'
+      OR combination LIKE ? ESCAPE '\\'
+    )`,
+    )
+    .join(' AND ');
+
+  const params = [];
+  for (const token of tokens) {
+    const term = `%${token}%`;
+    params.push(term, term, term, term, term);
+  }
+
   return getDb()
     .prepare(`
-      SELECT *
+      SELECT ${MEDICINE_COLUMNS}
       FROM medicines
-      WHERE name LIKE ?
-         OR hsn_code LIKE ?
-         OR batch LIKE ?
-         OR supplier_name LIKE ?
-         OR combination LIKE ?
-      ORDER BY name COLLATE NOCASE ASC, expiry COLLATE NOCASE ASC
+      WHERE ${conditions}
+      ORDER BY
+        CASE WHEN COALESCE(stock_qty, 0) > 0 THEN 0 ELSE 1 END,
+        name COLLATE NOCASE ASC,
+        expiry COLLATE NOCASE ASC
       LIMIT 50
     `)
-    .all(term, term, term, term, term);
+    .all(...params);
 }
 
 function insertMedicine(data) {
@@ -45,7 +71,7 @@ function insertMedicine(data) {
     )
   `);
   const info = stmt.run(data);
-  return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(info.lastInsertRowid);
+  return getDb().prepare(`SELECT ${MEDICINE_COLUMNS} FROM medicines WHERE id = ?`).get(info.lastInsertRowid);
 }
 
 export function addMedicine(data) {
@@ -93,7 +119,7 @@ export function updateMedicine(id, data) {
         combination = @combination
       WHERE id = @id
     `).run({ ...data, id });
-    return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(id);
+    return getDb().prepare(`SELECT ${MEDICINE_COLUMNS} FROM medicines WHERE id = ?`).get(id);
   });
 }
 
@@ -112,7 +138,7 @@ export function adjustMedicineStock(id, qty) {
     'adjust',
     () => {
       getDb().prepare('UPDATE medicines SET stock_qty = stock_qty + ? WHERE id = ?').run(qty, id);
-      return getDb().prepare('SELECT * FROM medicines WHERE id = ?').get(id);
+      return getDb().prepare(`SELECT ${MEDICINE_COLUMNS} FROM medicines WHERE id = ?`).get(id);
     },
   );
 }
