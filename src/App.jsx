@@ -9,6 +9,7 @@ import EmergencyBillHistory from '@/pages/EmergencyBillHistory';
 import BillHistory from '@/pages/BillHistory';
 import Dashboard from '@/pages/Dashboard';
 import Inventory from '@/pages/Inventory';
+import Expiry from '@/pages/Expiry';
 import NewBill from '@/pages/NewBill';
 import Reports from '@/pages/Reports';
 import Settings from '@/pages/Settings';
@@ -129,6 +130,9 @@ export default function App() {
     }
     if (route === 'inventory') {
       return <Inventory toast={toast} initialFilter={pageState.filter || 'all'} />;
+    }
+    if (route === 'expiry') {
+      return <Expiry />;
     }
     if (route === 'bill-history') {
       return <BillHistory toast={toast} onNavigate={navigate} />;

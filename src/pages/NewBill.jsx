@@ -4,6 +4,7 @@ import Input from '@/components/ui/Input';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatInventoryQty, isExpiringWithin, todayIso } from '@/utils/formatters';
+import { filterMedicines } from '@/utils/medicineSearch';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
 function getCategoryBadge(category) {
@@ -141,7 +142,9 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
   const [bill, setBill] = useState(isEditing ? createEmptyBill(shopSettings) : (persistentBill || createEmptyBill(shopSettings)));
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
-  const searchReqId = useRef(0);
+  const [catalog, setCatalog] = useState([]);
+  const searchInputRef = useRef(null);
+  const searchWrapRef = useRef(null);
 
   async function loadInitial() {
     const nextInvoice = await window.api.bills.getNextInvoiceNo();
@@ -219,26 +222,45 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     return () => clearTimeout(timer);
   }, [bill, isEditing, setPersistentBill]);
 
+  function loadCatalog() {
+    return window.api.medicines.getAll()
+      .then((rows) => setCatalog(Array.isArray(rows) ? rows : []))
+      .catch(() => setCatalog([]));
+  }
+
+  useEffect(() => {
+    loadCatalog();
+  }, []);
+
   useEffect(() => {
     const q = search.trim();
     if (!q) {
-      searchReqId.current += 1;
       setResults([]);
       return undefined;
     }
-    const reqId = ++searchReqId.current;
-    const timer = setTimeout(async () => {
-      try {
-        const rows = await window.api.medicines.search(q);
-        if (reqId !== searchReqId.current) return;
-        setResults(Array.isArray(rows) ? rows : []);
-      } catch {
-        if (reqId !== searchReqId.current) return;
+    const timer = setTimeout(() => {
+      setResults(filterMedicines(catalog, q, 50));
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [search, catalog]);
+
+  useEffect(() => {
+    if (!results.length) return undefined;
+    function onPointerDown(e) {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
         setResults([]);
       }
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [search]);
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setResults([]);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [results.length]);
 
   const totals = useMemo(
     () => calculateBillTotals(bill.items, bill.discount_percent),
@@ -282,6 +304,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     }));
     setSearch('');
     setResults([]);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }
 
   function updateItem(index, keyOrPatch, value) {
@@ -346,6 +369,7 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
     if (shouldPrint) await window.api.bills.print(saved.id);
     onBillSaved?.();
     setPersistentBill(null); // Explicitly clear persistence
+    await loadCatalog();
     loadInitial();
   }
 
@@ -485,13 +509,18 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
           </div>
           
           <div className="flex flex-1 max-w-2xl items-center gap-3">
-            <div className="relative flex-1">
+            <div className="relative flex-1" ref={searchWrapRef}>
               <input
+                ref={searchInputRef}
                 type="text"
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition"
                 placeholder="🔍 Search by name, batch, supplier, or combination (e.g. Paracetamol)..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onFocus={() => {
+                  const q = search.trim();
+                  if (q) setResults(filterMedicines(catalog, q, 50));
+                }}
               />
               {results.length > 0 && (
                 <div className="absolute z-20 mt-2 max-h-[400px] w-full overflow-auto rounded-2xl border border-slate-200 bg-white shadow-2xl scale-in-center">

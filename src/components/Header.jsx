@@ -1,4 +1,5 @@
 import {
+  CalendarClock,
   ClipboardList,
   CloudUpload,
   FileClock,
@@ -10,12 +11,12 @@ import {
   History,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
-import Button from './ui/Button';
 
 const titles = {
   dashboard: 'Dashboard',
   'new-bill': 'New Bill (POS)',
   inventory: 'Inventory Management',
+  expiry: 'Expiry by Month',
   'bill-history': 'Bill History',
   reports: 'Reports',
   settings: 'Settings',
@@ -30,6 +31,7 @@ const navItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { key: 'new-bill', label: 'New Bill', icon: FilePlus2 },
   { key: 'inventory', label: 'Inventory', icon: Package2 },
+  { key: 'expiry', label: 'Expiry', icon: CalendarClock },
   { key: 'stock-timeline', label: 'Stock Timeline', icon: GitCommitHorizontal },
   { key: 'bill-history', label: 'Bill History', icon: FileClock },
   { key: 'reports', label: 'Reports', icon: ClipboardList },

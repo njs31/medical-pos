@@ -4,6 +4,7 @@ import Input from '@/components/ui/Input';
 import PaymentMethodSelector from '@/components/PaymentMethodSelector';
 import { calculateBillTotals } from '@/utils/calculations';
 import { formatCurrency, formatInventoryQty, todayIso } from '@/utils/formatters';
+import { filterMedicines } from '@/utils/medicineSearch';
 import { numberToIndianWords } from '@/utils/numberToWords';
 
 function parseManualQty(value) {
@@ -167,28 +168,49 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
 
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
-  const searchReqId = useRef(0);
+  const [catalog, setCatalog] = useState([]);
+  const searchInputRef = useRef(null);
+  const searchWrapRef = useRef(null);
+
+  function loadCatalog() {
+    return window.api.medicines.getAll()
+      .then((rows) => setCatalog(Array.isArray(rows) ? rows : []))
+      .catch(() => setCatalog([]));
+  }
+
+  useEffect(() => {
+    loadCatalog();
+  }, []);
 
   useEffect(() => {
     const q = search.trim();
     if (!q) {
-      searchReqId.current += 1;
       setResults([]);
       return undefined;
     }
-    const reqId = ++searchReqId.current;
-    const timer = setTimeout(async () => {
-      try {
-        const rows = await window.api.medicines.search(q);
-        if (reqId !== searchReqId.current) return;
-        setResults(Array.isArray(rows) ? rows : []);
-      } catch {
-        if (reqId !== searchReqId.current) return;
+    const timer = setTimeout(() => {
+      setResults(filterMedicines(catalog, q, 50));
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [search, catalog]);
+
+  useEffect(() => {
+    if (!results.length) return undefined;
+    function onPointerDown(e) {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target)) {
         setResults([]);
       }
-    }, 120);
-    return () => clearTimeout(timer);
-  }, [search]);
+    }
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setResults([]);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [results.length]);
 
   useEffect(() => {
     if (!isEditing) return;
@@ -317,6 +339,7 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
     }));
     setSearch('');
     setResults([]);
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   }
 
   function updateItem(index, update) {
@@ -442,17 +465,22 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
       </section>
 
       <section className="rounded-[28px] bg-white p-6 shadow-card">
-        <div className="relative">
+        <div className="relative" ref={searchWrapRef}>
           <div className="mb-4">
             <div className="text-xs font-bold uppercase tracking-[0.32em] text-slate-400">Inventory Search & Items</div>
             <h2 className="mt-1 text-xl font-extrabold text-slate-900 italic">🔍 Search by name, batch, supplier, or combination...</h2>
           </div>
           <input
+            ref={searchInputRef}
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-lg font-semibold tracking-tight shadow-sm transition focus:border-blue-500 focus:bg-white outline-none"
-            placeholder="Type at least 2 characters to search..."
+            placeholder="Type to search medicines..."
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            onFocus={() => {
+              const q = search.trim();
+              if (q) setResults(filterMedicines(catalog, q, 50));
+            }}
           />
           {results.length > 0 && (
             <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-80 overflow-auto rounded-3xl border border-slate-100 bg-white/95 p-2 shadow-2xl backdrop-blur-xl">

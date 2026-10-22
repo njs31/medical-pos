@@ -15,6 +15,7 @@ import {
   normalizeExpiry,
   parseExpiry,
 } from '@/utils/formatters';
+import { filterMedicines } from '@/utils/medicineSearch';
 
 const initialForm = {
   name: '',
@@ -219,9 +220,9 @@ function BulkProductNameInput({
   onSelectProduct,
   columnKeys,
   rowCount,
+  catalog = [],
 }) {
   const inputRef = useRef(null);
-  const searchReqId = useRef(0);
   const [results, setResults] = useState([]);
   const [dropdownStyle, setDropdownStyle] = useState(null);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -234,25 +235,16 @@ function BulkProductNameInput({
   useEffect(() => {
     const q = String(value || '').trim();
     if (!isActive || !q) {
-      searchReqId.current += 1;
       setResults([]);
       return undefined;
     }
 
-    const reqId = ++searchReqId.current;
-    const timer = setTimeout(async () => {
-      try {
-        const rows = await window.api.medicines.search(q);
-        if (reqId !== searchReqId.current) return;
-        setResults(Array.isArray(rows) ? rows : []);
-      } catch {
-        if (reqId !== searchReqId.current) return;
-        setResults([]);
-      }
-    }, 120);
+    const timer = setTimeout(() => {
+      setResults(filterMedicines(catalog, q, 40));
+    }, 60);
 
     return () => clearTimeout(timer);
-  }, [value, isActive]);
+  }, [value, isActive, catalog]);
 
   useEffect(() => {
     if (!isActive || !results.length || !inputRef.current) {
@@ -495,18 +487,36 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   );
 
   const filtered = useMemo(() => {
+    const expiryCache = new Map();
+    const createdCache = new Map();
+    const getExpiry = (item) => {
+      if (!expiryCache.has(item.id)) {
+        expiryCache.set(item.id, parseExpiry(item.expiry)?.getTime() || 0);
+      }
+      return expiryCache.get(item.id);
+    };
+    const getCreated = (item) => {
+      if (!createdCache.has(item.id)) {
+        createdCache.set(
+          item.id,
+          Date.parse(String(item.created_at || '').replace(' ', 'T') + 'Z') || 0,
+        );
+      }
+      return createdCache.get(item.id);
+    };
+
     const result = medicines.filter((item) => {
       if (searchTokens.length > 0) {
-        const name = String(item.name || '').toLowerCase();
         const haystack = [
-          name,
-          String(item.hsn_code || '').toLowerCase(),
-          String(item.batch || '').toLowerCase(),
-          String(item.supplier_name || '').toLowerCase(),
-          String(item.combination || '').toLowerCase(),
-        ].join(' || ');
-        const allMatch = searchTokens.every((token) => haystack.includes(token));
-        if (!allMatch) return false;
+          item.name,
+          item.hsn_code,
+          item.batch,
+          item.supplier_name,
+          item.combination,
+        ]
+          .map((v) => String(v || '').toLowerCase())
+          .join(' ');
+        if (!searchTokens.every((token) => haystack.includes(token))) return false;
       }
       if (filter === 'low-stock') return Number(item.stock_qty) <= Number(item.reorder_level);
       if (filter === 'expiring-soon') return isExpiringWithin(item.expiry, 90);
@@ -516,14 +526,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
     result.sort((a, b) => {
       if (sortKey === 'expiry') {
-        const timeA = parseExpiry(a.expiry)?.getTime() || 0;
-        const timeB = parseExpiry(b.expiry)?.getTime() || 0;
+        const timeA = getExpiry(a);
+        const timeB = getExpiry(b);
         if (timeA !== timeB) return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
         return String(a.name || '').localeCompare(String(b.name || ''));
       }
       if (sortKey === 'created_at') {
-        const timeA = Date.parse(String(a.created_at || '').replace(' ', 'T') + 'Z') || 0;
-        const timeB = Date.parse(String(b.created_at || '').replace(' ', 'T') + 'Z') || 0;
+        const timeA = getCreated(a);
+        const timeB = getCreated(b);
         if (timeA !== timeB) return sortDir === 'asc' ? timeA - timeB : timeB - timeA;
         return String(a.name || '').localeCompare(String(b.name || ''));
       }
@@ -534,12 +544,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
           ? Number(first) - Number(second)
           : String(first).localeCompare(String(second));
       if (comparison !== 0) return sortDir === 'asc' ? comparison : -comparison;
-      // Stable secondary sort: same-name rows grouped, then by expiry (soonest first)
       const nameCmp = String(a.name || '').localeCompare(String(b.name || ''));
       if (nameCmp !== 0) return nameCmp;
-      const expA = parseExpiry(a.expiry)?.getTime() || 0;
-      const expB = parseExpiry(b.expiry)?.getTime() || 0;
-      return expA - expB;
+      return getExpiry(a) - getExpiry(b);
     });
     return result;
   }, [filter, medicines, searchTokens, sortDir, sortKey]);
@@ -1301,6 +1308,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                         onSelectProduct={(item) => applyBulkProductSuggestion(index, item)}
                         columnKeys={bulkColumnKeys}
                         rowCount={bulkRows.length}
+                        catalog={medicines}
                       />
                     </td>
                     <td className={BULK_CELL}>

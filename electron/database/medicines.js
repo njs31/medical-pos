@@ -7,10 +7,6 @@ const MEDICINE_COLUMNS = `
   supplier_name, item_category, rack_number, product_type, combination, created_at
 `;
 
-function escapeLike(token) {
-  return String(token).replace(/[\\%_]/g, (ch) => `\\${ch}`);
-}
-
 export function getAllMedicines() {
   return getDb()
     .prepare(`SELECT ${MEDICINE_COLUMNS} FROM medicines ORDER BY name COLLATE NOCASE ASC`)
@@ -23,25 +19,26 @@ export function searchMedicines(query = '') {
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 6)
-    .map(escapeLike);
+    // Strip LIKE wildcards instead of ESCAPE — avoids SQL escape pitfalls.
+    .map((token) => token.replace(/[%_]/g, ''));
 
-  if (!tokens.length) return [];
+  const usable = tokens.filter(Boolean);
+  if (!usable.length) return [];
 
-  // Every word must match somewhere (name, salt, batch, supplier, or HSN).
-  const conditions = tokens
+  const conditions = usable
     .map(
       () => `(
-      name LIKE ? ESCAPE '\\'
-      OR hsn_code LIKE ? ESCAPE '\\'
-      OR batch LIKE ? ESCAPE '\\'
-      OR supplier_name LIKE ? ESCAPE '\\'
-      OR combination LIKE ? ESCAPE '\\'
+      name LIKE ?
+      OR hsn_code LIKE ?
+      OR batch LIKE ?
+      OR supplier_name LIKE ?
+      OR combination LIKE ?
     )`,
     )
     .join(' AND ');
 
   const params = [];
-  for (const token of tokens) {
+  for (const token of usable) {
     const term = `%${token}%`;
     params.push(term, term, term, term, term);
   }
@@ -51,10 +48,7 @@ export function searchMedicines(query = '') {
       SELECT ${MEDICINE_COLUMNS}
       FROM medicines
       WHERE ${conditions}
-      ORDER BY
-        CASE WHEN COALESCE(stock_qty, 0) > 0 THEN 0 ELSE 1 END,
-        name COLLATE NOCASE ASC,
-        expiry COLLATE NOCASE ASC
+      ORDER BY name COLLATE NOCASE ASC
       LIMIT 50
     `)
     .all(...params);
