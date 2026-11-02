@@ -670,12 +670,23 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                     {formatCurrency(totals.items[index]?.amount || 0)}
                   </td>
                   <td className="px-4 py-4">
-                    <div className={`font-bold ${Number(totals.items[index]?.profit) < 0 ? 'text-red-600' : Number(totals.items[index]?.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
-                      {formatCurrency(totals.items[index]?.profit || 0)}
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {Number(item.purchase_rate) > 0 ? `${Number(totals.items[index]?.profit_margin || 0).toFixed(1)}% margin` : 'No cost set'}
-                    </div>
+                    {totals.items[index]?.has_cost ? (
+                      <>
+                        <div className={`font-bold ${Number(totals.items[index]?.profit) < 0 ? 'text-red-600' : Number(totals.items[index]?.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
+                          {formatCurrency(totals.items[index]?.profit)}
+                        </div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {Number(totals.items[index]?.profit_margin || 0).toFixed(1)}% margin
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-bold text-slate-400">—</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                          No purchase cost
+                        </div>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <button
@@ -726,15 +737,29 @@ export default function QuickBill({ toast, shopSettings, editBillId, onNavigate 
                    </div>
                 </div>
               </div>
-              <div className={`rounded-3xl border p-5 ${Number(totals.totalProfit) < 0 ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
+              <div className={`rounded-3xl border p-5 ${
+                totals.totalProfit == null
+                  ? 'border-amber-100 bg-amber-50'
+                  : Number(totals.totalProfit) < 0
+                    ? 'border-red-100 bg-red-50'
+                    : 'border-emerald-100 bg-emerald-50'
+              }`}>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-bold uppercase tracking-widest text-slate-500">Estimated Profit</span>
                   <div className="text-right">
-                    <span className={`text-2xl font-black ${Number(totals.totalProfit) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                      {formatCurrency(totals.totalProfit)}
+                    <span className={`text-2xl font-black ${
+                      totals.totalProfit == null
+                        ? 'text-amber-700'
+                        : Number(totals.totalProfit) < 0
+                          ? 'text-red-700'
+                          : 'text-emerald-700'
+                    }`}>
+                      {totals.totalProfit == null ? '—' : formatCurrency(totals.totalProfit)}
                     </span>
                     <div className="mt-1 text-[10px] font-bold uppercase tracking-tighter text-slate-500">
-                      {Number(totals.totalProfitMargin).toFixed(1)}% margin • cost {formatCurrency(totals.totalCost)}
+                      {totals.totalProfit == null
+                        ? 'Set purchase cost on products'
+                        : `${Number(totals.totalProfitMargin).toFixed(1)}% margin • cost ${formatCurrency(totals.totalCost)}`}
                     </div>
                   </div>
                 </div>

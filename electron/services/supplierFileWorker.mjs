@@ -3,6 +3,7 @@ import fsSync from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { resolvePurchaseRate } from './purchaseRate.js';
 
 const EMPTY = String();
 
@@ -196,10 +197,10 @@ const FIELD_SYNONYMS = {
   free_qty: ['f_qty', 'free', 'free_qty', 'fqty', 'fq', 'sch', 'scheme', 'sch_qty', 'bonus'],
   mrp: ['mrp', 'm_r_p', 'maximum_retail_price', 'retail_price', 'mrp_rs', 'mrp_rate'],
   rate: [
-    'rate', 'srate', 'ftrate', 'ptr', 'pts', 'p_rate', 'prate', 'purchase_rate', 'purch_rate', 'buying_rate',
-    'cost', 'unit_rate', 'net_rate', 'trade_rate', 'basic_rate',
+    'ptr', 'pts', 'ftrate', 'srate', 'p_rate', 'prate', 'purchase_rate', 'purch_rate',
+    'buying_rate', 'cost', 'unit_rate', 'net_rate', 'trade_rate', 'basic_rate', 'pur_rate',
   ],
-  amount: ['amount', 'amt', 'value', 'taxable', 'net_amount', 'line_amount', 'total', 'net_value', 'taxable_value'],
+  amount: ['amount', 'amt', 'taxable', 'net_amount', 'line_amount', 'net_value', 'taxable_value'],
   hsn_code: ['hsn', 'hsn_code', 'hsncode', 'hsn_sac', 'sac'],
   rack_number: ['rack', 'rack_no', 'rack_number', 'location', 'shelf'],
   supplier_name: ['supplier_name', 'supplier', 'party_name', 'distributor', 'sold_by', 'company', 'mfr', 'mfg'],
@@ -212,6 +213,7 @@ function scoreHeader(header, synonyms, { exactOnly = false } = {}) {
   const h = normalizeHeader(header);
   if (!h) return 0;
   if (synonyms.includes(h)) return 100;
+  if (h === 'rate') return synonyms.includes('rate') ? 100 : 0;
   if (exactOnly) return 0;
   for (const syn of synonyms) {
     const hParts = h.split('_');
@@ -220,6 +222,7 @@ function scoreHeader(header, synonyms, { exactOnly = false } = {}) {
   }
   return 0;
 }
+
 
 function mapHeaders(headers) {
   const mapping = {};
@@ -280,7 +283,7 @@ function rowFromMappedValues(values, mapping, meta = {}) {
   const mrp = parseNumber(get('mrp'));
   const rate = parseNumber(get('rate'));
   const amount = parseNumber(get('amount'));
-  const purchaseRate = rate > 0 ? rate : amount > 0 && stockQty > 0 ? amount / stockQty : 0;
+  const purchaseRate = resolvePurchaseRate({ rate, amount, qty: stockQty, mrp });
   if (stockQty <= 0) return null;
 
   return {
@@ -439,7 +442,8 @@ function rowFromLooseTokens(tokens, meta = {}) {
   }
   money.sort((a, b) => b - a);
   const mrp = money.length ? money[0] : 0;
-  const rate = money.length > 1 ? money[1] : 0;
+  const rawRate = money.length > 1 ? money[1] : 0;
+  const purchaseRate = resolvePurchaseRate({ rate: rawRate, amount: 0, qty: stockQty, mrp });
 
   return {
     name,
@@ -448,8 +452,8 @@ function rowFromLooseTokens(tokens, meta = {}) {
     batch,
     expiry,
     mrp,
-    rate,
-    purchase_rate: rate,
+    rate: purchaseRate,
+    purchase_rate: purchaseRate,
     amount: 0,
     stock_qty: stockQty,
     free_qty: freeQty,

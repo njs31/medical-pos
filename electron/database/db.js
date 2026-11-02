@@ -292,6 +292,9 @@ export function initDatabase() {
   if (!billItemsCols.some((col) => col.name === 'item_category')) {
     db.exec(`ALTER TABLE bill_items ADD COLUMN item_category TEXT DEFAULT 'Medicine'`);
   }
+  if (!billItemsCols.some((col) => col.name === 'purchase_rate')) {
+    db.exec(`ALTER TABLE bill_items ADD COLUMN purchase_rate REAL DEFAULT 0`);
+  }
 
   const hasSupplierName = medColumns.some((column) => column.name === 'supplier_name');
   if (!hasSupplierName) {

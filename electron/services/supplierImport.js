@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import { getDb } from "../database/db.js";
 import { runWithStockCheckpoint } from "../database/stockTimeline.js";
 import { parseBinarySupplierFile } from "./supplierFileBridge.js";
+import { resolvePurchaseRate } from "./purchaseRate.js";
+
+export { resolvePurchaseRate };
 
 const EMPTY = String();
 const QUOTE = String.fromCharCode(39);
@@ -24,11 +27,13 @@ const FIELD_SYNONYMS = {
   qty: ["qty", "quantity", "stock", "stock_qty", "qnty", "bill_qty", "inv_qty", "nos", "pcs", "issue_qty"],
   free_qty: ["f_qty", "free", "free_qty", "fqty", "fq", "sch", "scheme", "sch_qty", "bonus"],
   mrp: ["mrp", "m_r_p", "maximum_retail_price", "retail_price", "mrp_rs", "mrp_rate"],
+  // Unit purchase price from supplier (PTR). Keep this strict — generic "rate"
+  // columns (gst_rate, tax_rate) and barcodes must never land here.
   rate: [
-    "rate", "srate", "ftrate", "ptr", "pts", "p_rate", "prate", "purchase_rate", "purch_rate", "buying_rate",
-    "cost", "unit_rate", "net_rate", "trade_rate", "basic_rate",
+    "ptr", "pts", "ftrate", "srate", "p_rate", "prate", "purchase_rate", "purch_rate",
+    "buying_rate", "cost", "unit_rate", "net_rate", "trade_rate", "basic_rate", "pur_rate",
   ],
-  amount: ["amount", "amt", "value", "taxable", "net_amount", "line_amount", "net_value", "taxable_value"],
+  amount: ["amount", "amt", "taxable", "net_amount", "line_amount", "net_value", "taxable_value"],
   hsn_code: ["hsn", "hsn_code", "hsncode", "hsn_sac", "sac"],
   rack_number: ["rack", "rack_no", "rack_number", "location", "shelf"],
   supplier_name: ["supplier_name", "supplier", "party_name", "distributor", "sold_by", "from"],
@@ -91,12 +96,14 @@ function scoreHeader(header, synonyms, { exactOnly = false } = {}) {
   const h = normalizeHeader(header);
   if (!h) return 0;
   if (synonyms.includes(h)) return 100;
+  // Bare "rate" alone is too ambiguous (gst_rate / tax_rate / discount_rate).
+  if (h === "rate") return synonyms.includes("rate") ? 100 : 0;
   if (exactOnly) return 0;
   for (const syn of synonyms) {
     if (h === syn) return 100;
     // Prefer whole-token matches only (avoid SUPPLIER matching supplier_name via includes).
-    const hParts = h.split('_');
-    const sParts = syn.split('_');
+    const hParts = h.split("_");
+    const sParts = syn.split("_");
     if (hParts.some((part) => sParts.includes(part) && part.length > 2)) return 60;
   }
   return 0;
@@ -129,7 +136,12 @@ function mapHeaders(headers) {
       mapping.name = index;
       used.add(index);
     }
-    if (!mapping.rate && (h === 'ftrate' || h === 'ptr' || h === 'purchase_rate')) {
+    if (!mapping.rate && (h === 'ftrate' || h === 'ptr' || h === 'pts' || h === 'purchase_rate' || h === 'cost')) {
+      mapping.rate = index;
+      used.add(index);
+    }
+    // Only accept a bare "rate" column when nothing better matched.
+    if (!mapping.rate && h === 'rate') {
       mapping.rate = index;
       used.add(index);
     }
@@ -177,7 +189,7 @@ function rowFromMappedValues(values, mapping, meta = {}) {
   const mrp = parseNumber(get('mrp'));
   const rate = parseNumber(get('rate'));
   const amount = parseNumber(get('amount'));
-  const purchaseRate = rate > 0 ? rate : amount > 0 && stockQty > 0 ? amount / stockQty : 0;
+  const purchaseRate = resolvePurchaseRate({ rate, amount, qty: stockQty, mrp });
 
   return {
     name,
@@ -548,6 +560,19 @@ export function applySupplierImport(rows = [], options = {}) {
           row.reorder_level !== undefined &&
           row.reorder_level !== null &&
           String(row.reorder_level).trim() !== EMPTY;
+        const tabletsPerSheet = parseNumber(row.tablets_per_sheet, 0);
+        // Supplier files usually quote cost per strip/sheet. Internally we store
+        // purchase_rate per sellable unit (tablet) when tabs/sheet is known —
+        // same as the Inventory form — so bill profit = sell − cost is correct.
+        let purchaseRate = parseNumber(row.purchase_rate || row.rate);
+        if (
+          (row.item_category || "Medicine") === "Medicine" &&
+          tabletsPerSheet > 0 &&
+          purchaseRate > 0
+        ) {
+          purchaseRate = Number((purchaseRate / tabletsPerSheet).toFixed(4));
+        }
+
         const payload = {
           name: String(row.name || EMPTY).trim(),
           pack: String(row.pack || EMPTY).trim(),
@@ -555,13 +580,13 @@ export function applySupplierImport(rows = [], options = {}) {
           batch: String(row.batch || EMPTY).trim(),
           expiry: normalizeExpiry(row.expiry),
           mrp: parseNumber(row.mrp),
-          rate: parseNumber(row.rate || row.purchase_rate),
-          purchase_rate: parseNumber(row.purchase_rate || row.rate),
+          rate: purchaseRate,
+          purchase_rate: purchaseRate,
           stock_qty: stockQty,
           reorder_level: hasCustomReorder
             ? Math.max(0, Math.round(parseNumber(row.reorder_level)))
             : getLowStockThreshold(stockQty),
-          tablets_per_sheet: parseNumber(row.tablets_per_sheet, 0),
+          tablets_per_sheet: tabletsPerSheet,
           supplier_name: String(row.supplier_name || supplierFallback || EMPTY).trim(),
           item_category: row.item_category || "Medicine",
           rack_number: String(row.rack_number || EMPTY).trim(),

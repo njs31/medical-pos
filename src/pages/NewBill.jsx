@@ -766,12 +766,23 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
                   </td>
                   <td className="px-4 py-4 font-bold text-slate-900">{formatCurrency(item.amount)}</td>
                   <td className="px-4 py-4">
-                    <div className={`font-bold ${Number(item.profit) < 0 ? 'text-red-600' : Number(item.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
-                      {formatCurrency(item.profit)}
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {Number(item.purchase_rate) > 0 ? `${Number(item.profit_margin).toFixed(1)}% margin` : 'No cost set'}
-                    </div>
+                    {item.has_cost ? (
+                      <>
+                        <div className={`font-bold ${Number(item.profit) < 0 ? 'text-red-600' : Number(item.profit) === 0 ? 'text-slate-500' : 'text-emerald-600'}`}>
+                          {formatCurrency(item.profit)}
+                        </div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {Number(item.profit_margin).toFixed(1)}% margin
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-bold text-slate-400">—</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
+                          No purchase cost
+                        </div>
+                      </>
+                    )}
                   </td>
                   <td className="px-4 py-4">
                     <button
@@ -813,12 +824,26 @@ export default function NewBill({ toast, onBillSaved, persistentBill, setPersist
               <div className="mt-1 text-2xl font-extrabold text-red-600">- {formatCurrency(totals.discountAmount)}</div>
             </div>
 
-            <div className={`sm:col-span-2 rounded-2xl border p-4 ${Number(totals.totalProfit) < 0 ? 'border-red-100 bg-red-50' : 'border-emerald-100 bg-emerald-50'}`}>
+            <div className={`sm:col-span-2 rounded-2xl border p-4 ${
+              totals.totalProfit == null
+                ? 'border-amber-100 bg-amber-50'
+                : Number(totals.totalProfit) < 0
+                  ? 'border-red-100 bg-red-50'
+                  : 'border-emerald-100 bg-emerald-50'
+            }`}>
               <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Estimated Profit</div>
-              <div className={`mt-1 text-2xl font-extrabold ${Number(totals.totalProfit) < 0 ? 'text-red-700' : 'text-emerald-700'}`}>
-                {formatCurrency(totals.totalProfit)}
+              <div className={`mt-1 text-2xl font-extrabold ${
+                totals.totalProfit == null
+                  ? 'text-amber-700'
+                  : Number(totals.totalProfit) < 0
+                    ? 'text-red-700'
+                    : 'text-emerald-700'
+              }`}>
+                {totals.totalProfit == null ? '—' : formatCurrency(totals.totalProfit)}
                 <span className="ml-2 text-xs font-bold text-slate-500">
-                  ({Number(totals.totalProfitMargin).toFixed(1)}% • cost {formatCurrency(totals.totalCost)})
+                  {totals.totalProfit == null
+                    ? '(set purchase cost on products to see profit)'
+                    : `(${Number(totals.totalProfitMargin).toFixed(1)}% • cost ${formatCurrency(totals.totalCost)})`}
                 </span>
               </div>
             </div>

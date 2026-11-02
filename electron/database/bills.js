@@ -50,10 +50,10 @@ export function createBill(billData) {
   const insertItem = database.prepare(`
     INSERT INTO bill_items (
       bill_id, medicine_id, product_name, pack, hsn_code, batch, expiry,
-      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet, item_category
+      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet, item_category, purchase_rate
     ) VALUES (
       @bill_id, @medicine_id, @product_name, @pack, @hsn_code, @batch, @expiry,
-      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet, @item_category
+      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet, @item_category, @purchase_rate
     )
   `);
 
@@ -80,6 +80,7 @@ export function createBill(billData) {
           ...item,
           bill_id: billInfo.lastInsertRowid,
           medicine_id: item.medicine_id || null,
+          purchase_rate: Number(item.purchase_rate) || 0,
         });
         if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
       }
@@ -190,10 +191,10 @@ export function updateBill(id, billData) {
   const insertItem = database.prepare(`
     INSERT INTO bill_items (
       bill_id, medicine_id, product_name, pack, hsn_code, batch, expiry,
-      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet, item_category
+      qty, mrp, rate, sgst_percent, cgst_percent, amount, discount, tablets_per_sheet, item_category, purchase_rate
     ) VALUES (
       @bill_id, @medicine_id, @product_name, @pack, @hsn_code, @batch, @expiry,
-      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet, @item_category
+      @qty, @mrp, @rate, @sgst_percent, @cgst_percent, @amount, @discount, @tablets_per_sheet, @item_category, @purchase_rate
     )
   `);
 
@@ -229,6 +230,7 @@ export function updateBill(id, billData) {
           ...item,
           bill_id: id,
           medicine_id: item.medicine_id || null,
+          purchase_rate: Number(item.purchase_rate) || 0,
         });
         if (item.medicine_id) reduceStock.run(item.qty, item.medicine_id);
       }
@@ -339,10 +341,20 @@ export function getSalesSummary(from, to) {
       COALESCE(MAX(bill_items.tablets_per_sheet), MAX(medicines.tablets_per_sheet), 0) as tablets_per_sheet,
       COALESCE(MAX(bill_items.item_category), MAX(medicines.item_category), 'Medicine') as item_category,
       SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
-      SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
+      SUM(
+        bill_items.qty * COALESCE(
+          NULLIF(bill_items.purchase_rate, 0),
+          medicines.purchase_rate,
+          0
+        )
+      ) as total_cost,
       SUM(
         bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)
-        - bill_items.qty * COALESCE(medicines.purchase_rate, 0)
+        - bill_items.qty * COALESCE(
+          NULLIF(bill_items.purchase_rate, 0),
+          medicines.purchase_rate,
+          0
+        )
       ) as profit
     FROM bill_items
     JOIN bills ON bills.id = bill_items.bill_id
@@ -411,10 +423,20 @@ export function getDayDetails(date) {
       COALESCE(MAX(bill_items.tablets_per_sheet), MAX(medicines.tablets_per_sheet), 0) as tablets_per_sheet,
       COALESCE(MAX(bill_items.item_category), MAX(medicines.item_category), 'Medicine') as item_category,
       SUM(bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)) as total_amount,
-      SUM(bill_items.qty * COALESCE(medicines.purchase_rate, 0)) as total_cost,
+      SUM(
+        bill_items.qty * COALESCE(
+          NULLIF(bill_items.purchase_rate, 0),
+          medicines.purchase_rate,
+          0
+        )
+      ) as total_cost,
       SUM(
         bill_items.amount * (1 - COALESCE(bills.discount_percent, 0) / 100.0)
-        - bill_items.qty * COALESCE(medicines.purchase_rate, 0)
+        - bill_items.qty * COALESCE(
+          NULLIF(bill_items.purchase_rate, 0),
+          medicines.purchase_rate,
+          0
+        )
       ) as profit
     FROM bill_items
     JOIN bills ON bills.id = bill_items.bill_id
