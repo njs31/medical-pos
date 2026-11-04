@@ -186,9 +186,9 @@ function cleanProductName(name) {
 
 const FIELD_SYNONYMS = {
   name: [
-    'item_name', 'itemname', 'product_name', 'productname', 'prod_name', 'prodname', 'product', 'medicine_name',
-    'medicine', 'item', 'items', 'particulars', 'particular', 'description', 'item_description', 'drug_name',
-    'name', 'goods_description', 'product_description',
+    'product_name', 'productname', 'item_name', 'itemname', 'prod_name', 'prodname', 'medicine_name',
+    'medicine', 'particulars', 'particular', 'description', 'item_description', 'drug_name',
+    'goods_description', 'product_description', 'product', 'item', 'items', 'name',
   ],
   pack: ['pack', 'pack_size', 'packing', 'pkg', 'pck', 'packsize', 'unit'],
   batch: ['batch', 'batch_no', 'batch_number', 'batchno', 'bno', 'b_no', 'lot', 'lot_no', 'lotno', 'batch_code'],
@@ -227,11 +227,45 @@ function scoreHeader(header, synonyms, { exactOnly = false } = {}) {
 function mapHeaders(headers) {
   const mapping = {};
   const used = new Set();
+
+  // Pass 1: product name — prefer "Product Name" (right copy on Marg dual invoices).
+  {
+    let best = { index: -1, score: 0 };
+    headers.forEach((header, index) => {
+      let score = scoreHeader(header, FIELD_SYNONYMS.name);
+      if (/product\s*_?\s*name|item\s*_?\s*name/i.test(String(header || EMPTY))) score += 40;
+      if (score > best.score) best = { index, score };
+    });
+    if (best.score >= 60) {
+      mapping.name = best.index;
+      used.add(best.index);
+    }
+  }
+
+  // Pass 2: remaining fields. On dual left+right Marg headers, keep columns on the
+  // same side as the product name so Exp/Rate aren't taken from the other copy.
+  const nameIndex = mapping.name;
+  const preferRight = nameIndex != null && nameIndex >= Math.floor(headers.length / 3);
+
   for (const [field, synonyms] of Object.entries(FIELD_SYNONYMS)) {
+    if (field === 'name') continue;
     let best = { index: -1, score: 0 };
     headers.forEach((header, index) => {
       if (used.has(index)) return;
-      const score = scoreHeader(header, synonyms, { exactOnly: EXACT_FIELDS.has(field) });
+      let score = scoreHeader(header, synonyms, { exactOnly: EXACT_FIELDS.has(field) });
+      if (!score && field === 'rate' && normalizeHeader(header) === 'rate') score = 100;
+      if (score <= 0) return;
+      if (nameIndex != null) {
+        // Batch on the left Marg copy is usually cleaner (right copy often glues
+        // neighbouring digits onto Batchno). Everything else prefers name's side.
+        if (field === 'batch') {
+          if (preferRight && index < nameIndex) score += 40;
+          if (!preferRight && index <= nameIndex + 8) score += 35;
+        } else {
+          if (preferRight && index >= nameIndex - 1) score += 35;
+          if (!preferRight && index <= nameIndex + 8) score += 35;
+        }
+      }
       if (score > best.score) best = { index, score };
     });
     const threshold = EXACT_FIELDS.has(field) ? 100 : 60;
@@ -243,13 +277,27 @@ function mapHeaders(headers) {
   return mapping;
 }
 
+/** Marg sometimes prints "11/27 591.50" as one fragment under Rate/Exp. */
+function splitExpiryAndRate(raw) {
+  const text = String(raw || EMPTY).trim();
+  if (!text) return null;
+  const match = text.match(
+    /^((?:0?[1-9]|1[0-2])[\/\-.]\d{2,4})\s+(\d+(?:\.\d+)?)$/,
+  );
+  if (!match) return null;
+  return {
+    expiry: normalizeExpiry(match[1]),
+    rate: parseNumber(match[2]),
+  };
+}
+
 function getLowStockThreshold(stockQty) {
   const qty = parseNumber(stockQty, 0);
   if (qty <= 0) return 0;
   return Math.max(1, Math.ceil(qty * 0.2));
 }
 
-const JUNK_LINE = /(sub\s*total|grand\s*total|total\s*(amount|qty|value)?\s*[:=]?\s*$|taxable|gst\s*%|cgst|sgst|igst|round\s*off|net\s*amount|amount\s*in\s*words|page\s*\d|terms|declaration|signature|bank\s*detail|e\s*&\s*o\.?e|goods once sold|drug\s*lic|gstin|d\.?l\.?\s*no|invoice\s*no|bill\s*no|phone|mobile|email)/i;
+const JUNK_LINE = /(sub\s*total|grand\s*total|total\s*(amount|qty|value|items|gst)?\s*[:=]?\s*$|taxable|gst\s*%|cgst|sgst|igst|round\s*off|net\s*amount|amount\s*in\s*words|page\s*\d|terms|declaration|signature|authorised\s*sign|bank\s*detail|e\s*&\s*o\.?e|goods once sold|drug\s*lic|gstin|d\.?l\.?\s*no|invoice\s*no|bill\s*no|phone|mobile|email|sort\s*by|checked\s*by|prep(ared)?\s*by|salesman|flash\s*:|tot\s*os|tot\s*inv|sale\s*value|sch\s*disc|cr\s*no|dr\s*no)/i;
 
 const LOOKS_LIKE_DATE = /^\d{1,2}[\/\-.]\d{1,2}([\/\-.]\d{2,4})?$|^\d{1,2}[\/\-.]\d{2,4}$/;
 const EXPIRY_TOKEN = /^(0?[1-9]|1[0-2])[\/\-](\d{2}|\d{4})$|^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}$|^\d{0,2}[\-\s]?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\-\s]?\d{2,4}$/i;
@@ -257,9 +305,33 @@ const MONEY_TOKEN = /^\d{1,7}\.\d{1,3}$/;
 const INT_TOKEN = /^\d{1,5}$/;
 const HSN_TOKEN = /^\d{6,8}$/;
 
+/** Marg / ERP invoices often wrap headers onto a 2nd line: "NAME", "NO", "T%". */
+const HEADER_DEBRIS = new Set([
+  'name', 'product', 'product name', 'item', 'item name', 'particulars', 'description',
+  'batch', 'batch no', 'batchno', 'bno', 'lot', 'rack', 'rack no', 'no', 'nos',
+  'qty', 'quantity', 'free', 'f qty', 'exp', 'expiry', 'rate', 'mrp', 'gst', 'gst%',
+  'hsn', 'pack', 'amount', 'value', 's.no', 'sno', 'sr', 'mfr', 'dis', 'disc',
+  't%', 'gs', 'ptr', 'pts',
+]);
+
+function isHeaderDebris(value) {
+  const v = String(value || EMPTY).trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!v) return false;
+  if (HEADER_DEBRIS.has(v)) return true;
+  // "PRODUCT NAME", "BATCH NO", "RACK NO" etc.
+  if (/^(product|item|batch|rack|lot|exp|qty|free|mrp|rate|gst|hsn|pack|amount)[\s._-]*(name|no|number|qty|%|rs)?$/i.test(v)) {
+    return true;
+  }
+  return false;
+}
+
 function looksLikeProductName(value) {
   const v = String(value || EMPTY).trim();
   if (v.length < 3) return false;
+  if (isHeaderDebris(v)) return false;
+  if (JUNK_LINE.test(v)) return false;
+  // Labels like "Sort By :" / "Checked By :" are footer fields, not products.
+  if (/:\s*$/.test(v) || /^[^a-zA-Z0-9]*[A-Za-z ]+:\s*[^a-zA-Z]*$/.test(v)) return false;
   if (LOOKS_LIKE_DATE.test(v)) return false;
   if (/^\d+(\.\d+)?$/.test(v)) return false;
   // Needs a run of letters, e.g. DOLO, Augmentin.
@@ -281,8 +353,18 @@ function rowFromMappedValues(values, mapping, meta = {}) {
   if (JUNK_LINE.test(name)) return null;
 
   const mrp = parseNumber(get('mrp'));
-  const rate = parseNumber(get('rate'));
+  let rate = parseNumber(get('rate'));
+  let expiry = normalizeExpiry(get('expiry'));
   const amount = parseNumber(get('amount'));
+
+  // Recover when Exp+Rate were extracted as one token (common on Marg PDFs).
+  for (const raw of [get('rate'), get('expiry'), get('mrp')]) {
+    const split = splitExpiryAndRate(raw);
+    if (!split) continue;
+    if (!expiry) expiry = split.expiry;
+    if (!(rate > 0) && split.rate > 0) rate = split.rate;
+  }
+
   const purchaseRate = resolvePurchaseRate({ rate, amount, qty: stockQty, mrp });
   if (stockQty <= 0) return null;
 
@@ -291,7 +373,7 @@ function rowFromMappedValues(values, mapping, meta = {}) {
     pack: get('pack'),
     hsn_code: get('hsn_code'),
     batch: get('batch'),
-    expiry: normalizeExpiry(get('expiry')),
+    expiry,
     mrp,
     rate: purchaseRate,
     purchase_rate: purchaseRate,
@@ -566,7 +648,13 @@ function looksLikeBatch(value) {
 function scoreStrategy(items, strategy = EMPTY) {
   if (!items.length) return 0;
   let score = items.length * 10;
+  let plausible = 0;
   for (const item of items) {
+    if (isHeaderDebris(item.name) || !looksLikeProductName(item.name)) {
+      score -= 40; // header leftovers like "NAME" must never win
+      continue;
+    }
+    plausible += 1;
     if (VALID_EXPIRY.test(item.expiry)) score += 4;
     else if (item.expiry) score -= 2;
 
@@ -574,16 +662,14 @@ function scoreStrategy(items, strategy = EMPTY) {
     else if (item.batch) score -= 2;
 
     if (item.mrp > 0) score += 2;
-    if (item.purchase_rate > 0) score += 2;
-    if (item.mrp > 0 && item.purchase_rate > 0 && item.purchase_rate <= item.mrp) score += 1;
+    if (item.purchase_rate > 0) score += 3;
+    if (item.mrp > 0 && item.purchase_rate > 0 && item.purchase_rate <= item.mrp) score += 4;
+    if (item.mrp > 0 && !(item.purchase_rate > 0)) score -= 5;
     if (item.stock_qty > 0 && item.stock_qty <= 5000) score += 1;
     if (item.pack) score += 1;
   }
-  // Declared column headings beat guessing from position, and an x-anchored
-  // read keeps blank cells in their own column instead of shifting the row.
-  // Note: a cost above MRP is never a reason to prefer a reading that reshuffles
-  // columns until the oddity disappears - that hides real invoice errors from
-  // the person checking the preview.
+  if (!plausible) return 0;
+  // Declared column headings beat guessing — but only when the rows look real.
   if (strategy.includes('+headers')) score += 25;
   if (strategy.includes('header-anchored')) score += 10;
   return score;
@@ -764,7 +850,12 @@ function headerAnchoredRows(pages) {
           if (target < 0) target = mid < bounds[0].left ? 0 : bounds.length - 1;
           cells[target] = cells[target] ? `${cells[target]} ${item.text}` : item.text;
         }
-        if (cells.some((cell) => cell.trim())) rows.push(cells.map((cell) => cell.trim()));
+        const trimmed = cells.map((cell) => cell.trim());
+        if (!trimmed.some((cell) => cell)) continue;
+        // Skip wrapped header leftovers: "NAME | NO | NO | T%"
+        const nonEmpty = trimmed.filter(Boolean);
+        if (nonEmpty.length && nonEmpty.every((cell) => isHeaderDebris(cell))) continue;
+        rows.push(trimmed);
       }
       if (rows.length > 1) return rows;
     }
