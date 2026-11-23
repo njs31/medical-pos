@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('api', {
+  window: {
+    // Restores keyboard input after native dialogs (Windows Electron focus bug)
+    refocus: () => ipcRenderer.send('window:refocus'),
+  },
   medicines: {
     getAll: () => ipcRenderer.invoke('medicines:getAll'),
     search: (query) => ipcRenderer.invoke('medicines:search', query),

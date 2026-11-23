@@ -423,6 +423,15 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
+// On Windows, after window.confirm/alert closes the page can look focused but
+// ignore typing. Blurring and refocusing the window restores keyboard input.
+ipcMain.on('window:refocus', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.blur();
+  mainWindow.focus();
+  mainWindow.webContents.focus();
+});
+
 ipcMain.handle('medicines:getAll', async () => getAllMedicines());
 ipcMain.handle('medicines:search', async (_, query) => searchMedicines(query));
 ipcMain.handle('medicines:add', async (_, data) => addMedicine(data));
