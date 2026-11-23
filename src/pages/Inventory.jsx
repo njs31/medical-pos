@@ -444,7 +444,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   function handleLogout() {
     setIsAuthenticated(false);
     sessionStorage.removeItem('inventory_auth');
-    toast?.('Logged out successfully', 'success');
+    toast?.('Inventory locked', 'success');
   }
 
   async function load() {
@@ -859,20 +859,20 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             <button
               onClick={handleLogout}
               className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-700 transition hover:bg-green-100"
-              title="Click to logout"
+              title="Click to lock inventory editing"
             >
               <ShieldCheck size={14} />
-              Logout
+              Lock
               <LogOut size={12} className="ml-0.5 opacity-60" />
             </button>
           ) : (
             <button
               onClick={() => requireAuth(() => {})}
               className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"
-              title="Click to login"
+              title="Click to enter passcode"
             >
               <Lock size={14} />
-              Login
+              Unlock
             </button>
           )}
 
