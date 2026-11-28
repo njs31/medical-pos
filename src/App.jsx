@@ -16,6 +16,7 @@ import Settings from '@/pages/Settings';
 import QuickBill from '@/pages/QuickBill';
 import QuickBillHistory from '@/pages/QuickBillHistory';
 import StockTimeline from '@/pages/StockTimeline';
+import Distributors from '@/pages/Distributors';
 
 function useHashRoute() {
   const getRoute = () => window.location.hash.replace(/^#\/?/, '') || 'dashboard';
@@ -168,6 +169,9 @@ export default function App() {
     }
     if (route === 'emergency-history') {
       return <EmergencyBillHistory toast={toast} onNavigate={navigate} />;
+    }
+    if (route === 'distributors') {
+      return <Distributors />;
     }
     if (route === 'stock-timeline') {
       return <StockTimeline toast={toast} />;

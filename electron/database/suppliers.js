@@ -5,11 +5,25 @@ export function getAllSuppliers() {
   return db.prepare('SELECT * FROM suppliers ORDER BY name ASC').all();
 }
 
+function nameKey(name) {
+  return String(name || '').trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+/** Adds a supplier, or returns the existing one if the name is already saved (any case/spacing). */
 export function addSupplier(supplier) {
   const db = getDb();
-  const { name, details } = supplier;
+  const name = String(supplier?.name || '').trim().replace(/\s+/g, ' ');
+  const details = supplier?.details ?? '';
+  if (!name) throw new Error('Supplier name is required');
+
+  const existing = db
+    .prepare('SELECT * FROM suppliers')
+    .all()
+    .find((row) => nameKey(row.name) === nameKey(name));
+  if (existing) return { ...existing, existed: true };
+
   const result = db.prepare('INSERT INTO suppliers (name, details) VALUES (?, ?)').run(name, details);
-  return { id: result.lastInsertRowid, ...supplier };
+  return { id: Number(result.lastInsertRowid), name, details, existed: false };
 }
 
 export function updateSupplier(id, supplier) {

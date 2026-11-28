@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import LoginModal from '@/components/ui/LoginModal';
 import Modal from '@/components/ui/Modal';
+import SupplierPicker from '@/components/SupplierPicker';
 import {
   formatCurrency,
   formatDate,
@@ -16,6 +17,7 @@ import {
   parseExpiry,
 } from '@/utils/formatters';
 import { filterMedicines } from '@/utils/medicineSearch';
+import { buildSupplierOptions, findSupplierOption } from '@/utils/supplierOptions';
 
 const ROWS_PER_PAGE = 100;
 
@@ -449,6 +451,28 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     toast?.('Inventory locked', 'success');
   }
 
+  // Saved suppliers plus every distributor name already used on stock.
+  const supplierOptions = useMemo(
+    () => buildSupplierOptions(suppliers, medicines.map((item) => item.supplier_name)),
+    [suppliers, medicines],
+  );
+
+  function handleSupplierAdded(saved) {
+    if (!saved?.name) return;
+    setSuppliers((prev) => (findSupplierOption(buildSupplierOptions(prev), saved.name) ? prev : [...prev, saved]));
+  }
+
+  /** Makes sure the chosen distributor is in the saved supplier list (Settings). */
+  async function ensureSupplierSaved(name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return '';
+    const known = findSupplierOption(buildSupplierOptions(suppliers), trimmed);
+    if (known) return known.name;
+    const saved = await window.api.suppliers.add({ name: trimmed, details: '' });
+    handleSupplierAdded(saved);
+    return saved?.name || trimmed;
+  }
+
   async function load() {
     const [nextMedicines, nextSuppliers] = await Promise.all([
       window.api.medicines.getAll(),
@@ -638,7 +662,10 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   function getFilledBulkRows() {
     return bulkRows
       .map((row, index) => ({ row, index }))
-      .filter(({ row }) => Object.values(row).some((value) => String(value ?? '').trim() !== ''));
+      // Product type always has a default ("Ethical"), so it alone doesn't make a row filled.
+      .filter(({ row }) => Object.entries(row).some(
+        ([key, value]) => key !== 'product_type' && String(value ?? '').trim() !== '',
+      ));
   }
 
   async function submitBulk() {
@@ -663,11 +690,12 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
     setBulkSaving(true);
     try {
+      const bulkSupplier = await ensureSupplierSaved(bulkSupplierName);
       const payloads = filledRows.map(({ row }) => buildMedicinePayload(
         {
           ...initialForm,
           ...row,
-          supplier_name: bulkSupplierName,
+          supplier_name: bulkSupplier,
           item_category: bulkItemCategory,
           tablets_per_sheet: bulkItemCategory === 'Medicine' ? row.tablets_per_sheet : 0,
         },
@@ -721,7 +749,8 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     }
 
     try {
-      const payload = buildMedicinePayload(form, itemCategory);
+      const supplierName = await ensureSupplierSaved(form.supplier_name);
+      const payload = buildMedicinePayload({ ...form, supplier_name: supplierName }, itemCategory);
 
       const itemType = itemCategory;
 
@@ -790,8 +819,9 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
 
       // Prefer supplier detected from the attachment; fall back to matching existing name.
       const detected = String(result.supplier_name || '').trim();
-      const matched = latestSuppliers.find(
-        (s) => String(s.name || '').trim().toLowerCase() === detected.toLowerCase(),
+      const matched = findSupplierOption(
+        buildSupplierOptions(latestSuppliers, medicines.map((item) => item.supplier_name)),
+        detected,
       );
       const supplier_name = matched?.name || detected;
 
@@ -829,9 +859,13 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     }
     setSupplierImportSaving(true);
     try {
-      const result = await window.api.supplierImport.apply(selected, {
-        supplier_name: supplierImportMeta.supplier_name,
-      });
+      const wasNew = !findSupplierOption(buildSupplierOptions(suppliers), supplierImportMeta.supplier_name);
+      const importSupplier = await ensureSupplierSaved(supplierImportMeta.supplier_name);
+      if (wasNew) toast(`New supplier ${importSupplier} saved`);
+      const result = await window.api.supplierImport.apply(
+        selected.map((row) => ({ ...row, supplier_name: importSupplier })),
+        { supplier_name: importSupplier },
+      );
       if (!result?.success) {
         toast(result?.message || 'Import failed', 'error');
         return;
@@ -1199,19 +1233,14 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
             </Input>
           )}
 
-          <Input
-            as="select"
-            label="Supplier"
+          <SupplierPicker
             value={form.supplier_name || ''}
-            onChange={(e) => setForm((prev) => ({ ...prev, supplier_name: e.target.value }))}
-          >
-            <option value="">Select Supplier</option>
-            {suppliers.map((s) => (
-              <option key={s.id} value={s.name}>
-                {s.name}
-              </option>
-            ))}
-          </Input>
+            onChange={(supplier_name) => setForm((prev) => ({ ...prev, supplier_name }))}
+            options={supplierOptions}
+            onSupplierAdded={handleSupplierAdded}
+            toast={toast}
+            hint={editingId ? undefined : 'Shows up under this distributor on the Distributors page'}
+          />
 
           <div className="md:col-span-2">
             <Input
@@ -1280,19 +1309,13 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       >
         <div className="flex h-full min-h-0 flex-col gap-4">
           <div className="grid shrink-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-            <Input
-              as="select"
-              label="Supplier"
+            <SupplierPicker
               value={bulkSupplierName}
-              onChange={(e) => setBulkSupplierName(e.target.value)}
-            >
-              <option value="">Select Supplier</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </Input>
+              onChange={setBulkSupplierName}
+              options={supplierOptions}
+              onSupplierAdded={handleSupplierAdded}
+              toast={toast}
+            />
             <Input
               as="select"
               label="Category"
@@ -1498,27 +1521,18 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
       >
         <div className="flex h-full min-h-0 flex-col gap-4">
           <div className="grid shrink-0 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-            <div className="flex flex-col gap-1">
-              <Input
-                label="Supplier"
-                list="supplier-import-datalist"
-                value={supplierImportMeta.supplier_name}
-                onChange={(e) => {
-                  const supplier_name = e.target.value;
-                  setSupplierImportMeta((prev) => ({ ...prev, supplier_name }));
-                  setSupplierImportRows((prev) => prev.map((row) => ({ ...row, supplier_name })));
-                }}
-                placeholder="From file, pick existing, or type a new name"
-              />
-              <datalist id="supplier-import-datalist">
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.name} />
-                ))}
-              </datalist>
-              <p className="text-[11px] font-medium text-slate-500">
-                Prefills from the attached file. Choose an existing supplier or edit the name.
-              </p>
-            </div>
+            <SupplierPicker
+              value={supplierImportMeta.supplier_name}
+              onChange={(supplier_name) => {
+                setSupplierImportMeta((prev) => ({ ...prev, supplier_name }));
+                setSupplierImportRows((prev) => prev.map((row) => ({ ...row, supplier_name })));
+              }}
+              options={supplierOptions}
+              onSupplierAdded={handleSupplierAdded}
+              toast={toast}
+              required
+              hint="Prefilled from the file. Pick another distributor or add a new one."
+            />
             <div className="flex items-end">
               <Button
                 type="button"

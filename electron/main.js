@@ -36,6 +36,7 @@ import {
 } from './database/stockTimeline.js';
 import { applySupplierImport, parseSupplierFile } from './services/supplierImport.js';
 import { applyPendingStockPatches } from './database/stockPatches.js';
+import { ensurePurchaseLog, listDistributors, getDistributorPurchases } from './database/purchases.js';
 import { getSettings, saveSettings } from './database/settings.js';
 import { backupToSpacetimeDB, loadSpacetimeTokenFromCli } from './services/spacetimeBackup.js';
 import {
@@ -392,6 +393,12 @@ app.whenReady().then(() => {
     log.info('Database initialized successfully.');
 
     try {
+      if (ensurePurchaseLog()) log.info('Purchase log created and back-filled.');
+    } catch (error) {
+      log.error('Purchase log setup failed:', error.message);
+    }
+
+    try {
       const patches = applyPendingStockPatches();
       if (patches.length) log.info('Applied stock patches:', JSON.stringify(patches));
     } catch (error) {
@@ -570,6 +577,8 @@ ipcMain.handle('settings:save', async (_, data) => saveSettings(data));
 ipcMain.handle('backup:spacetime', async () => backupToSpacetimeDB());
 ipcMain.handle('backup:loadSpacetimeToken', async () => loadSpacetimeTokenFromCli());
 
+ipcMain.handle('purchases:distributors', async () => listDistributors());
+ipcMain.handle('purchases:byDistributor', async (_, key) => getDistributorPurchases(key));
 ipcMain.handle('suppliers:getAll', async () => getAllSuppliers());
 ipcMain.handle('suppliers:add', async (_, supplier) => addSupplier(supplier));
 ipcMain.handle('suppliers:delete', async (_, id) => deleteSupplier(id));

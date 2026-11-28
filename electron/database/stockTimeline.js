@@ -1,4 +1,5 @@
 import { getDb } from './db.js';
+import { recordPurchasesFromDiff } from './purchases.js';
 
 const COMPARE_FIELDS = [
   'name',
@@ -243,6 +244,13 @@ function insertCheckpoint(before, after, message, source) {
       snapshot_json: snapshotStorage,
       diff_json: JSON.stringify(diff),
     });
+
+  // Log stock intake per distributor. Never let this block the stock change itself.
+  try {
+    recordPurchasesFromDiff(diff, source, Number(info.lastInsertRowid), null, database);
+  } catch (error) {
+    console.error('Purchase log failed:', error.message);
+  }
 
   // Keep database light: automatically prune old automatic checkpoints beyond 1000 records
   pruneAutoCheckpoints(database);

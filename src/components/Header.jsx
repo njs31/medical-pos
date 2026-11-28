@@ -9,6 +9,7 @@ import {
   Package2,
   Settings as SettingsIcon,
   History,
+  Truck,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
@@ -25,6 +26,7 @@ const titles = {
   'emergency-bill': 'Emergency Bill',
   'emergency-history': 'Emergency History',
   'stock-timeline': 'Stock Timeline',
+  distributors: 'Distributor Purchases',
 };
 
 const navItems = [
@@ -33,6 +35,7 @@ const navItems = [
   { key: 'inventory', label: 'Inventory', icon: Package2 },
   { key: 'expiry', label: 'Expiry', icon: CalendarClock },
   { key: 'stock-timeline', label: 'Stock Timeline', icon: GitCommitHorizontal },
+  { key: 'distributors', label: 'Distributors', icon: Truck },
   { key: 'bill-history', label: 'Bill History', icon: FileClock },
   { key: 'reports', label: 'Reports', icon: ClipboardList },
   { key: 'quick-bill', label: 'Quick Bill', icon: FilePlus2 },

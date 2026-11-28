@@ -61,6 +61,10 @@ contextBridge.exposeInMainWorld('api', {
     toSpacetime: () => ipcRenderer.invoke('backup:spacetime'),
     loadTokenFromCli: () => ipcRenderer.invoke('backup:loadSpacetimeToken'),
   },
+  purchases: {
+    distributors: () => ipcRenderer.invoke('purchases:distributors'),
+    byDistributor: (key) => ipcRenderer.invoke('purchases:byDistributor', key),
+  },
   suppliers: {
     getAll: () => ipcRenderer.invoke('suppliers:getAll'),
     add: (data) => ipcRenderer.invoke('suppliers:add', data),
