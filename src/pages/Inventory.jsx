@@ -17,6 +17,8 @@ import {
 } from '@/utils/formatters';
 import { filterMedicines } from '@/utils/medicineSearch';
 
+const ROWS_PER_PAGE = 100;
+
 const initialForm = {
   name: '',
   pack: '',
@@ -467,6 +469,11 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
   }, [initialFilter]);
 
   useEffect(() => {
+    // Clearing the box applies at once; typing waits briefly between keystrokes.
+    if (!search.trim()) {
+      setDebouncedSearch('');
+      return undefined;
+    }
     const timer = setTimeout(() => setDebouncedSearch(search), 120);
     return () => clearTimeout(timer);
   }, [search]);
@@ -550,6 +557,20 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
     });
     return result;
   }, [filter, medicines, searchTokens, sortDir, sortKey]);
+
+  // Drawing every product at once (≈80k DOM nodes for ~1,850 items) made the
+  // page slow to open and to clear search, so rows are shown in pages.
+  // The count resets whenever the search, filter or sort changes.
+  const listKey = `${debouncedSearch}|${filter}|${sortKey}|${sortDir}`;
+  const [rowPaging, setRowPaging] = useState({ key: listKey, count: ROWS_PER_PAGE });
+  if (rowPaging.key !== listKey) {
+    // React's "adjust state during render" pattern: forget the old count as soon as
+    // the list changes, so returning to an earlier search starts at 100 again.
+    setRowPaging({ key: listKey, count: ROWS_PER_PAGE });
+  }
+  const visibleCount = rowPaging.key === listKey ? rowPaging.count : ROWS_PER_PAGE;
+  const visibleRows = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount]);
+  const showMoreRows = (count) => setRowPaging({ key: listKey, count });
 
   function matchedViaCombinationOnly(item) {
     if (searchTokens.length === 0) return false;
@@ -918,7 +939,7 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((item, index) => {
+              {visibleRows.map((item, index) => {
                 const stock = getQuantityBreakdown(item.stock_qty, item.tablets_per_sheet, item.item_category);
                 const nameKey = String(item.name || '').trim().toUpperCase();
                 const batchCount = batchCountByName.get(nameKey) || 1;
@@ -1046,6 +1067,26 @@ export default function Inventory({ toast, initialFilter = 'all' }) {
                 </tr>
                 );
               })}
+              {filtered.length > visibleRows.length && (
+                <tr>
+                  <td colSpan="10" className="px-4 py-4 text-center">
+                    <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-slate-500">
+                      <span>
+                        Showing {visibleRows.length} of {filtered.length} products
+                      </span>
+                      <Button
+                        variant="secondary"
+                        onClick={() => showMoreRows(visibleCount + ROWS_PER_PAGE)}
+                      >
+                        Show {Math.min(ROWS_PER_PAGE, filtered.length - visibleRows.length)} more
+                      </Button>
+                      <Button variant="secondary" onClick={() => showMoreRows(filtered.length)}>
+                        Show all
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              )}
               {!filtered.length && (
                 <tr>
                   <td colSpan="10" className="px-4 py-12 text-center text-slate-500">
